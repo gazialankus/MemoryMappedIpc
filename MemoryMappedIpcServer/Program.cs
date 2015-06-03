@@ -11,25 +11,77 @@ using System.Threading.Tasks;
 namespace MemoryMappedIpcServer {
     class Program {
 
-        private static void ConnectionReceived(IAsyncResult result)
-        {
+        private static List<ConnectionToClient> _listOfConnections = new List<ConnectionToClient>();
+
+        private static void ConnectionReceived(IAsyncResult result) {
+            // when a connection comes in, 
+            // open another pipe with the client and create a listener record with it
+            // create a mutex and a shmem
+
             string id = result.AsyncState.ToString();
             Console.WriteLine("server received a connection " + id);
 
-            pipeServer.EndWaitForConnection(result);
+            // TODO don't forget to do this line upon application exit
+            _welcomingPipeServer.EndWaitForConnection(result);
 
-            pipeServer.Disconnect();
 
-            pipeServer.BeginWaitForConnection(ConnectionReceived, id + ".");
+            StreamWriter sw = new StreamWriter(_welcomingPipeServer);
+            sw.WriteLine(id);
+            sw.Flush();
 
-            Console.ReadLine();
+            //NamedPipeServerStream switchPipe = new NamedPipeServerStream(id, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            //switchPipe.WaitForConnection();
+
+            //StreamReader switchReader = new StreamReader(switchPipe);
+            //string switchIncoming = switchReader.ReadLine();
+            //Console.WriteLine("switch: " + switchIncoming);
+
+            NamedPipeServerStream matchedPipeServer = _welcomingPipeServer;
+            var connectionToClient = new ConnectionToClient(id, matchedPipeServer);
+            _listOfConnections.Add(connectionToClient);
+
+            _welcomingPipeServer = CreateNewPipeServer();
+            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
+
+            // keep listening
+
+            // TODO don't forget to do this line upon application exit
+            //_welcomingPipeServer.Disconnect();
+
+            using (StreamReader sr = new StreamReader(matchedPipeServer)) {
+                while (true) {
+                    Task<string> readLineAsync = sr.ReadLineAsync();
+                    Console.WriteLine("server will wait");
+                    readLineAsync.Wait();
+                    Console.WriteLine(readLineAsync.Result);
+                    Console.WriteLine("server looped");
+
+                    // read and print.
+
+                    connectionToClient.WaitForMutex();
+                    Console.WriteLine("server got mutex");
+                    Thread.Sleep(1000);
+                    connectionToClient.ReleaseMutex();
+
+                }
+            }
         }
-        static NamedPipeServerStream pipeServer;
+
+        private static NamedPipeServerStream CreateNewPipeServer() {
+            return new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        }
+
+        private static NamedPipeServerStream _welcomingPipeServer;
+
+        private static int _clientCount = 0;
+        static string GetNextClientId() {
+            ++_clientCount;
+            return "client" + _clientCount;
+        }
 
         static void PiperThread() {
-            pipeServer = new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-            string nextId = "client1";
-            pipeServer.BeginWaitForConnection(ConnectionReceived, nextId);
+            _welcomingPipeServer = CreateNewPipeServer();
+            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
             while (true) ;
 
             // piper thread 
