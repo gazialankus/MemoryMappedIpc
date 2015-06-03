@@ -22,9 +22,39 @@ namespace MemoryMappedIpcClient {
             string id = sr.ReadLine();
             Console.WriteLine("received from server: " + id);
 
-            Mutex bufferSwitchMutex = new Mutex(false, id);
+            //Mutex bufferSwitchMutex = new Mutex(false, id); //use mutex static factories instead
 
             Console.WriteLine("Connected\n");
+
+            using (MemoryMappedFile mmf = MemoryMappedFile.OpenExisting("testmap")) {
+
+                using (MemoryMappedViewStream mmStream = mmf.CreateViewStream()) {
+                    BinaryReader reader = new BinaryReader(mmStream);
+                    reader.BaseStream.Seek(0, SeekOrigin.Begin);
+                    Console.WriteLine(reader.ReadInt32());
+                }
+
+                using (MemoryMappedViewStream mmStream = mmf.CreateViewStream(4, 0)) {
+                    BinaryReader reader = new BinaryReader(mmStream);
+                    while (true) {
+                        Thread.Sleep(2000);
+
+                        reader.BaseStream.Seek(0, SeekOrigin.Begin);
+                        Console.WriteLine(reader.ReadInt32());
+                    }
+                }
+                //Mutex mutex = Mutex.OpenExisting("testmapmutex");
+                //mutex.WaitOne();
+
+                //using (MemoryMappedViewStream stream = mmf.CreateViewStream(1, 0)) {
+                //    BinaryWriter writer = new BinaryWriter(stream);
+                //    writer.Write(1);
+                //}
+                //mutex.ReleaseMutex();
+            }
+
+
+
             Console.ReadLine();
 
 
