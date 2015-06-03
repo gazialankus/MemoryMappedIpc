@@ -83,7 +83,7 @@ namespace MemoryMappedIpcServer {
                             connection.MmWriter.Seek(0, SeekOrigin.Begin);
                             Console.WriteLine("zeroed");
                         }
-                        //connection.MmWriter.Write(counter);
+                        connection.MmWriter.Write(counter);
                         ++counter;
                     }
 
@@ -100,8 +100,8 @@ namespace MemoryMappedIpcServer {
 
             Thread piperThread = new Thread(PiperThread);
             piperThread.Start();
-            //Thread deviceThread = new Thread(DeviceThread);
-            //deviceThread.Start();
+            Thread deviceThread = new Thread(DeviceThread);
+            deviceThread.Start();
         }
 
         static void Main_old(string[] args) {
