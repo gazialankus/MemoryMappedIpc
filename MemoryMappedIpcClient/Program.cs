@@ -24,20 +24,6 @@ namespace MemoryMappedIpcClient {
 
             Mutex bufferSwitchMutex = new Mutex(false, id);
 
-            using (StreamWriter sw = new StreamWriter(pipeClient)) {
-                while (true) {
-                    Console.Write("client will wait");
-                    bufferSwitchMutex.WaitOne();
-                    Console.Write("client got mutex");
-                    sw.WriteLine("SWITCH!");
-                    Console.Write("client wrote line");
-                    sw.Flush();
-                    Console.Write("client flushed");
-                    bufferSwitchMutex.ReleaseMutex();
-                    Console.WriteLine("client looped");
-                }
-            }
-
             Console.WriteLine("Connected\n");
             Console.ReadLine();
 

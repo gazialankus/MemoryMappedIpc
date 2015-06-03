@@ -21,11 +21,14 @@ namespace MemoryMappedIpcServer {
         private MemoryMappedFile memoryMappedFile;
         private BinaryWriter bufferWriter;
         private string id;
+        private StreamWriter streamToClient;
 
         public ConnectionToClient(string id, NamedPipeServerStream matchedPipeServer) {
             this.id = id;
             this.pipeServer = matchedPipeServer;
             bufferSwitchMutex = new Mutex(false, id);
+            streamToClient = new StreamWriter(matchedPipeServer);
+            streamToClient.AutoFlush = true;
         }
 
         public void WaitForMutex() {
@@ -36,5 +39,8 @@ namespace MemoryMappedIpcServer {
             bufferSwitchMutex.ReleaseMutex();
         }
 
+        public void Greet() {
+            streamToClient.WriteLine("welcome, " + id);
+        }
     }
 }

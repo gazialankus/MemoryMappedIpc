@@ -24,21 +24,15 @@ namespace MemoryMappedIpcServer {
             // TODO don't forget to do this line upon application exit
             _welcomingPipeServer.EndWaitForConnection(result);
 
-
-            StreamWriter sw = new StreamWriter(_welcomingPipeServer);
-            sw.WriteLine(id);
-            sw.Flush();
-
-            //NamedPipeServerStream switchPipe = new NamedPipeServerStream(id, PipeDirection.In, 1, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
-            //switchPipe.WaitForConnection();
-
-            //StreamReader switchReader = new StreamReader(switchPipe);
-            //string switchIncoming = switchReader.ReadLine();
-            //Console.WriteLine("switch: " + switchIncoming);
-
             NamedPipeServerStream matchedPipeServer = _welcomingPipeServer;
             var connectionToClient = new ConnectionToClient(id, matchedPipeServer);
             _listOfConnections.Add(connectionToClient);
+
+            // tell the connected client
+                // his id
+                // the address in shared memory that he should use
+                // he does not have to say anything
+            connectionToClient.Greet();
 
             _welcomingPipeServer = CreateNewPipeServer();
             _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
@@ -48,23 +42,7 @@ namespace MemoryMappedIpcServer {
             // TODO don't forget to do this line upon application exit
             //_welcomingPipeServer.Disconnect();
 
-            using (StreamReader sr = new StreamReader(matchedPipeServer)) {
-                while (true) {
-                    Task<string> readLineAsync = sr.ReadLineAsync();
-                    Console.WriteLine("server will wait");
-                    readLineAsync.Wait();
-                    Console.WriteLine(readLineAsync.Result);
-                    Console.WriteLine("server looped");
-
-                    // read and print.
-
-                    connectionToClient.WaitForMutex();
-                    Console.WriteLine("server got mutex");
-                    Thread.Sleep(1000);
-                    connectionToClient.ReleaseMutex();
-
-                }
-            }
+            
         }
 
         private static NamedPipeServerStream CreateNewPipeServer() {
