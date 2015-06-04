@@ -8,6 +8,7 @@ using System.Security.Principal;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoryMappedIpcServer.Shared;
 
 namespace MemoryMappedIpcClient {
     class Program {
@@ -18,40 +19,71 @@ namespace MemoryMappedIpcClient {
             Console.WriteLine("Connecting to server...\n");
             pipeClient.Connect();
 
-            StreamReader sr = new StreamReader(pipeClient);
-            string id = sr.ReadLine();
-            Console.WriteLine("received from server: " + id);
+            BinaryReader sr = new BinaryReader(pipeClient);
+            string id = sr.ReadString();
+            int lineSize = sr.ReadInt32();
+            int totalBufferSizeInLines = sr.ReadInt32();
 
-            //Mutex bufferSwitchMutex = new Mutex(false, id); //use mutex static factories instead
+            SharedMemoryAccessor sharedMemoryAccessor = new SharedMemoryAccessor(
+                clientId: id, 
+                isServer: false, 
+                lineSize: lineSize, 
+                totalBufferSizeInLines: totalBufferSizeInLines);
+
+            Console.WriteLine("received from server: " + id + " " + lineSize + " " + totalBufferSizeInLines);
 
             Console.WriteLine("Connected\n");
 
-            using (MemoryMappedFile mmf = MemoryMappedFile.OpenExisting("testmap")) {
+            //Console.WriteLine(sharedMemoryAccessor.ReadLine());
+            //Console.WriteLine(sharedMemoryAccessor.ReadLine());
 
-                using (MemoryMappedViewStream mmStream = mmf.CreateViewStream()) {
-                    BinaryReader reader = new BinaryReader(mmStream);
-                    reader.BaseStream.Seek(0, SeekOrigin.Begin);
-                    Console.WriteLine(reader.ReadInt32());
-                }
+            //while (true) {
+            //    Thread.Sleep(2000);
+            //    Console.WriteLine(sharedMemoryAccessor.ReadLine());
+            //}
 
-                using (MemoryMappedViewStream mmStream = mmf.CreateViewStream(4, 0)) {
-                    BinaryReader reader = new BinaryReader(mmStream);
-                    while (true) {
-                        Thread.Sleep(2000);
 
-                        reader.BaseStream.Seek(0, SeekOrigin.Begin);
-                        Console.WriteLine(reader.ReadInt32());
+            while (true) {
+                bool first = true;
+                foreach (int i in sharedMemoryAccessor.GetAvailableLinesToClient()) {
+                    if (first) {
+                        Console.WriteLine("first");
+                        first = false;
                     }
+                    Console.WriteLine("read this: " + i);
                 }
-                //Mutex mutex = Mutex.OpenExisting("testmapmutex");
-                //mutex.WaitOne();
-
-                //using (MemoryMappedViewStream stream = mmf.CreateViewStream(1, 0)) {
-                //    BinaryWriter writer = new BinaryWriter(stream);
-                //    writer.Write(1);
-                //}
-                //mutex.ReleaseMutex();
+                Console.WriteLine("hit enter");
+                Console.ReadLine();
             }
+
+
+
+            //using (MemoryMappedFile mmf = MemoryMappedFile.OpenExisting("wii_" + id)) {
+
+            //    using (MemoryMappedViewStream mmStream = mmf.CreateViewStream()) {
+            //        BinaryReader reader = new BinaryReader(mmStream);
+            //        reader.BaseStream.Seek(0, SeekOrigin.Begin);
+            //        Console.WriteLine(reader.ReadInt32());
+            //    }
+
+            //    using (MemoryMappedViewStream mmStream = mmf.CreateViewStream(4, 0)) {
+            //        BinaryReader reader = new BinaryReader(mmStream);
+            //        while (true) {
+            //            Thread.Sleep(2000);
+
+            //            reader.BaseStream.Seek(0, SeekOrigin.Begin);
+            //            Console.WriteLine(reader.ReadInt32());
+            //        }
+            //    }
+            //    //Mutex mutex = Mutex.OpenExisting("testmapmutex");
+            //    //mutex.WaitOne();
+
+            //    //using (MemoryMappedViewStream stream = mmf.CreateViewStream(1, 0)) {
+            //    //    BinaryWriter writer = new BinaryWriter(stream);
+            //    //    writer.Write(1);
+            //    //}
+            //    //mutex.ReleaseMutex();
+            //}
 
 
 

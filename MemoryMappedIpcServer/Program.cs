@@ -34,10 +34,9 @@ namespace MemoryMappedIpcServer {
                 // he does not have to say anything
             connectionToClient.Greet();
 
+            // for the next client, recreate and keep listening
             _welcomingPipeServer = CreateNewPipeServer();
             _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
-
-            // keep listening
 
             // TODO don't forget to do this line upon application exit
             //_welcomingPipeServer.Disconnect();
@@ -59,7 +58,11 @@ namespace MemoryMappedIpcServer {
         static void PiperThread() {
             _welcomingPipeServer = CreateNewPipeServer();
             _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
-            while (true) ;
+            while (true) {
+                // check existing client pipes
+                    // if one of them is not connected
+                        // dismantle it 
+            }
 
             // piper thread 
                 // listen to the welcomer pipe
@@ -78,13 +81,19 @@ namespace MemoryMappedIpcServer {
                 if (_listOfConnections.Count == 0) {
                     Thread.SpinWait(20);
                 } else {
+                    // this will be done through the buffer
                     foreach (ConnectionToClient connection in _listOfConnections) {
-                        if (counter % 100 == 0) {
-                            connection.MmWriter.Seek(0, SeekOrigin.Begin);
+                        if (counter % 1000000 == 0) {
+                            //connection.MmWriter.Seek(0, SeekOrigin.Begin);
+                            counter = 0;
                             Console.WriteLine("zeroed");
                         }
-                        connection.MmWriter.Write(counter);
+                        //connection.MmWriter.Write(counter);
+                        connection.SharedMemoryAccessor.AddLine(counter);
+                        Console.WriteLine("added " + counter);
                         ++counter;
+
+                        Console.ReadLine();
                     }
 
                     Thread.Sleep(10);
