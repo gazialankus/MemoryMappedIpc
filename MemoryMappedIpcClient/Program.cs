@@ -45,15 +45,15 @@ namespace MemoryMappedIpcClient {
 
             while (true) {
                 bool first = true;
-                foreach (int i in sharedMemoryAccessor.GetAvailableLinesToClient()) {
+                foreach (MotionMessage i in sharedMemoryAccessor.GetAvailableLinesToClient()) {
                     if (first) {
                         Console.WriteLine("first");
                         first = false;
                     }
-                    Console.WriteLine("read this: " + i);
+                    Console.WriteLine("read this: " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
                 }
-                Console.WriteLine("hit enter");
-                Console.ReadLine();
+                //Console.WriteLine("hit enter");
+                //Console.ReadLine();
             }
 
 

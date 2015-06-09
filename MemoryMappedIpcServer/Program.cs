@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using MemoryMappedIpcServer.Shared;
 
 namespace MemoryMappedIpcServer {
     class Program {
@@ -74,31 +75,99 @@ namespace MemoryMappedIpcServer {
                         // dismantle it 
         }
 
+        // TODO June 9: manage a wiiuse_simple and supply data to here
         static void DeviceThread() {
-            int counter = 0;
+            //THIS WORKS! Great. 
+            WiiuseSimple.wus_init(1);
 
-            while (true) {
-                if (_listOfConnections.Count == 0) {
-                    Thread.SpinWait(20);
-                } else {
-                    // this will be done through the buffer
-                    foreach (ConnectionToClient connection in _listOfConnections) {
-                        if (counter % 1000000 == 0) {
-                            //connection.MmWriter.Seek(0, SeekOrigin.Begin);
-                            counter = 0;
-                            Console.WriteLine("zeroed");
+            int numConnected = WiiuseSimple.wus_find_and_connect(1);
+
+            if (numConnected == 0) {
+                Console.WriteLine("could not connect to a wii remote");
+            } else {
+                int wmi = 0;
+
+                WiiuseSimple.wus_start_accel(wmi);
+                WiiuseSimple.wus_start_gyro(wmi);
+
+                while (true) {
+                    if (WiiuseSimple.wus_poll() > 0) {
+                        short buttonsPressed = WiiuseSimple.wus_get_buttons_pressed(wmi);
+                        short buttonsHeld = WiiuseSimple.wus_get_buttons_held(wmi);
+                        short buttonsReleased = WiiuseSimple.wus_get_buttons_released(wmi);
+
+                        // TODO give me the milliseconds since the program was ran 
+                        long timeNow = 0;// TODO
+
+                        foreach (ConnectionToClient connection in _listOfConnections) {
+                            if (WiiuseSimple.wus_accel_received(wmi) > 0) {
+                                float x, y, z;
+                                WiiuseSimple.wus_get_accel(wmi, out x, out y, out z);
+                                Console.WriteLine("accel: " + x + " " + y + " " + z);
+
+                                MotionMessage m;
+
+                                m.IsGyro = false;
+                                m.Milliseconds = timeNow; 
+                                m.X = x;
+                                m.Y = y;
+                                m.Z = z;
+
+                                connection.SharedMemoryAccessor.AddLine(m);
+                            }
+
+                            if (WiiuseSimple.wus_gyro_received(wmi) > 0) {
+                                float x, y, z;
+                                WiiuseSimple.wus_get_gyro(wmi, out x, out y, out z);
+                                Console.WriteLine("gyro: " + x + " " + y + " " + z);
+
+                                MotionMessage m;
+
+                                m.IsGyro = true;
+                                m.Milliseconds = timeNow;
+                                m.X = x;
+                                m.Y = y;
+                                m.Z = z;
+
+                                connection.SharedMemoryAccessor.AddLine(m);
+                            }
                         }
-                        //connection.MmWriter.Write(counter);
-                        connection.SharedMemoryAccessor.AddLine(counter);
-                        Console.WriteLine("added " + counter);
-                        ++counter;
 
-                        Console.ReadLine();
                     }
-
-                    Thread.Sleep(10);
                 }
             }
+
+            //int returned = WiiuseSimple.test_wiiuse_simple();
+            //Console.WriteLine("wiiuse connected and returned " + returned);
+
+            //MotionMessage counter = new MotionMessage(true, 1, .1f, .2f, .3f);
+
+            //while (true) {
+            //    if (_listOfConnections.Count == 0) {
+            //        Thread.SpinWait(20);
+            //    } else {
+            //        // this will be done through the buffer
+            //        foreach (ConnectionToClient connection in _listOfConnections) {
+            //            if (counter.Milliseconds % 1000000 == 0) {
+            //                //connection.MmWriter.Seek(0, SeekOrigin.Begin);
+            //                counter.Milliseconds = 0;
+            //                Console.WriteLine("zeroed");
+            //            }
+            //            //connection.MmWriter.Write(counter);
+            //            connection.SharedMemoryAccessor.AddLine(counter);
+            //            Console.WriteLine("added " + counter);
+            //            ++counter.Milliseconds;
+            //            counter.IsGyro = !counter.IsGyro;
+            //            counter.X += .01f;
+            //            counter.Y += .01f;
+            //            counter.Z += .01f;
+
+            //            Console.ReadLine();
+            //        }
+
+            //        Thread.Sleep(10);
+            //    }
+            //}
             // device thread
                 // if there are listeners, grab the data (or grab all the time maybe)
                 // do this in mutex

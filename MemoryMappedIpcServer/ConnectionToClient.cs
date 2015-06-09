@@ -29,7 +29,7 @@ namespace MemoryMappedIpcServer {
             // TODO if we're not going to use this for anything other than greeting, perhaps don't keep the stream around
             _pipeToClient = new BinaryWriter(matchedPipeServer);
 
-            int lineSize = sizeof(int);
+            int lineSize = MotionMessage.GetByteSize();
             int totalBufferSizeInLines = 100;
 
             SharedMemoryAccessor = new SharedMemoryAccessor(

@@ -43,6 +43,9 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="..\MemoryMappedIpcServer\Shared\MotionMessage.cs">
+      <Link>Shared\MotionMessage.cs</Link>
+    </Compile>
     <Compile Include="..\MemoryMappedIpcServer\Shared\SharedMemoryAccessor.cs">
       <Link>Shared\SharedMemoryAccessor.cs</Link>
     </Compile>
