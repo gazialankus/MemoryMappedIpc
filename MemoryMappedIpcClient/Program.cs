@@ -43,7 +43,8 @@ namespace MemoryMappedIpcClient {
             //}
 
 
-            while (true) {
+            for(int ii = 0; ii < 1000; ) {
+//            while(true) { 
                 bool first = true;
                 foreach (MotionMessage i in sharedMemoryAccessor.GetAvailableLinesToClient()) {
                     if (first) {
@@ -55,7 +56,8 @@ namespace MemoryMappedIpcClient {
                 //Console.WriteLine("hit enter");
                 //Console.ReadLine();
             }
-
+            // this doesn't break it either. 
+            pipeClient.Dispose(); //TODO tell server to disconnect with a message
 
 
             //using (MemoryMappedFile mmf = MemoryMappedFile.OpenExisting("wii_" + id)) {

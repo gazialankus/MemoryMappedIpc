@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
@@ -104,9 +105,9 @@ namespace MemoryMappedIpcServer.Shared {
         private static int CalculateHeaderSizeInBytes() {
             return sizeof (int) // _bufferStartingLine
                 + sizeof (int) // _bufferWrittenLineCount
-                + sizeof (int) // _clientHasReadThisManyLines
-                + sizeof (int) // _totalBufferSizeInLines
-                + sizeof (int); // _lineSize;
+                + sizeof (int); // _clientHasReadThisManyLines
+                //+ sizeof (int) // _totalBufferSizeInLines
+                //+ sizeof (int); // _lineSize;
         }
 
         // with the help of this, both writer and reader know where they are. use it to complete the protocol. 
@@ -201,6 +202,9 @@ namespace MemoryMappedIpcServer.Shared {
             //int endLine = BufferStartingLine + BufferWrittenLineCount;
         }
 
-        // an iterable?
+        public void CleanUp() {
+            _memoryMappedFile.Dispose();
+            // do I need to dispose of anything else? I think the other streams etc are dependent on the memory mapped file, maybe not necessary. 
+        }
     }
 }

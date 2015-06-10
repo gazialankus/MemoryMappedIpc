@@ -37,6 +37,72 @@ namespace MemoryMappedIpcServer {
                 isServer: true, 
                 lineSize: lineSize, 
                 totalBufferSizeInLines: totalBufferSizeInLines);
+
+
+            Thread connectionMonitorThread = new Thread(ConnectionMonitorThread);
+            connectionMonitorThread.Start();
+        }
+
+        private void ConnectionMonitorThread() {
+            // If you need to actually read from the client, you have to modify this to get data as well.
+            while (_pipeServer.IsConnected) {
+                // create a request and wait on it
+                IAsyncResult asyncResult = null;
+                try {
+                    asyncResult = _pipeServer.BeginRead(buffer: ConnectionTestingByteArray,
+                        offset: 0,
+                        count: 0,
+                        callback: null,
+                        state: null);
+                } catch (Exception) {
+                    _pipeServer.Close();
+                } finally {
+                    if (asyncResult != null) {
+                        _pipeServer.EndRead(asyncResult);
+                        _pipeServer.Close();
+                    }
+                }
+            }
+            Console.WriteLine("****server detected a disconnection");
+        }
+
+
+        private static readonly byte[] ConnectionTestingByteArray = new byte[] {0x20};
+
+        public bool IsConnected() {
+            return _pipeServer.IsConnected;
+            //if (!_pipeServer.IsConnected) {
+            //    return false;
+            //} else {
+            //    IAsyncResult asyncResult = null;
+            //    try {
+            //        //TODO asking to read 0 bytes now. if this does not work, ask for more. in that case, consider what to do when you actually read something...
+            //        asyncResult = _pipeServer.BeginRead(buffer: ConnectionTestingByteArray,
+            //            offset: 0,
+            //            count: 1,
+            //            callback: null,
+            //            state: null);
+            //        //pd.pipe.BeginRead(pd.data, 0, pd.data.Length, OnAsyncMessage, pd);
+            //    } catch (Exception) {
+            //        _pipeServer.Close();
+            //        return false;
+            //    } finally {
+            //        if (asyncResult != null) {
+            //            _pipeServer.EndRead(asyncResult); 
+            //            // DO THIS: a thread can wait here for each pipe. and then when the pipe is broken this returns. good. 
+            //            // in this class, spawn a thread that waits here. right after this, it declares the pipe broken. good. 
+
+            //        }
+            //    }
+            //}
+            //return true;
+        }
+
+        public void Dispose() {
+            // TODO dismantle the shared memory
+            _pipeServer.Dispose();
+
+            SharedMemoryAccessor.CleanUp();
         }
 
 

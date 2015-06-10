@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.IO.Pipes;
@@ -12,7 +13,8 @@ using MemoryMappedIpcServer.Shared;
 namespace MemoryMappedIpcServer {
     class Program {
 
-        private static List<ConnectionToClient> _listOfConnections = new List<ConnectionToClient>();
+        private static readonly List<ConnectionToClient> Connections = new List<ConnectionToClient>();
+        private static readonly List<ConnectionToClient> NewConnections = new List<ConnectionToClient>();
 
         private static void ConnectionReceived(IAsyncResult result) {
             // when a connection comes in, 
@@ -27,7 +29,9 @@ namespace MemoryMappedIpcServer {
 
             NamedPipeServerStream matchedPipeServer = _welcomingPipeServer;
             var connectionToClient = new ConnectionToClient(id, matchedPipeServer);
-            _listOfConnections.Add(connectionToClient);
+            lock (NewConnections) {
+                NewConnections.Add(connectionToClient);
+            }
 
             // tell the connected client
                 // his id
@@ -56,29 +60,11 @@ namespace MemoryMappedIpcServer {
             return "client" + _clientCount;
         }
 
-        static void PiperThread() {
-            _welcomingPipeServer = CreateNewPipeServer();
-            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
-            while (true) {
-                // check existing client pipes
-                    // if one of them is not connected
-                        // dismantle it 
-            }
-
-            // piper thread 
-                // listen to the welcomer pipe
-                    // when a connection comes in, 
-                        // open another pipe with the client and create a listener record with it
-                        // create a mutex and a shmem
-                // check existing client pipes
-                    // if one of them is not connected
-                        // dismantle it 
-        }
-
-        // TODO June 9: manage a wiiuse_simple and supply data to here
-        static void DeviceThread() {
+        // manage a wiiuse_simple and supply data to here
+        static void MainLoop() {
             //THIS WORKS! Great. 
             WiiuseSimple.wus_init(1);
+            Stopwatch stopwatch = Stopwatch.StartNew();
 
             int numConnected = WiiuseSimple.wus_find_and_connect(1);
 
@@ -91,15 +77,16 @@ namespace MemoryMappedIpcServer {
                 WiiuseSimple.wus_start_gyro(wmi);
 
                 while (true) {
+                    RunConnectionMaintenance();
+
                     if (WiiuseSimple.wus_poll() > 0) {
                         short buttonsPressed = WiiuseSimple.wus_get_buttons_pressed(wmi);
                         short buttonsHeld = WiiuseSimple.wus_get_buttons_held(wmi);
                         short buttonsReleased = WiiuseSimple.wus_get_buttons_released(wmi);
 
-                        // TODO give me the milliseconds since the program was ran 
-                        long timeNow = 0;// TODO
+                        long millisecondsNow = stopwatch.ElapsedMilliseconds;
 
-                        foreach (ConnectionToClient connection in _listOfConnections) {
+                        foreach (ConnectionToClient connection in Connections) {
                             if (WiiuseSimple.wus_accel_received(wmi) > 0) {
                                 float x, y, z;
                                 WiiuseSimple.wus_get_accel(wmi, out x, out y, out z);
@@ -108,7 +95,7 @@ namespace MemoryMappedIpcServer {
                                 MotionMessage m;
 
                                 m.IsGyro = false;
-                                m.Milliseconds = timeNow; 
+                                m.Milliseconds = millisecondsNow; 
                                 m.X = x;
                                 m.Y = y;
                                 m.Z = z;
@@ -124,7 +111,7 @@ namespace MemoryMappedIpcServer {
                                 MotionMessage m;
 
                                 m.IsGyro = true;
-                                m.Milliseconds = timeNow;
+                                m.Milliseconds = millisecondsNow;
                                 m.X = x;
                                 m.Y = y;
                                 m.Z = z;
@@ -143,11 +130,11 @@ namespace MemoryMappedIpcServer {
             //MotionMessage counter = new MotionMessage(true, 1, .1f, .2f, .3f);
 
             //while (true) {
-            //    if (_listOfConnections.Count == 0) {
+            //    if (_connections.Count == 0) {
             //        Thread.SpinWait(20);
             //    } else {
             //        // this will be done through the buffer
-            //        foreach (ConnectionToClient connection in _listOfConnections) {
+            //        foreach (ConnectionToClient connection in _connections) {
             //            if (counter.Milliseconds % 1000000 == 0) {
             //                //connection.MmWriter.Seek(0, SeekOrigin.Begin);
             //                counter.Milliseconds = 0;
@@ -174,12 +161,35 @@ namespace MemoryMappedIpcServer {
                     // add the data to each of the listeners 
         }
 
-        private static void Main(string[] args) {
+        private static void RunConnectionMaintenance() {
+            if (Connections.Count > 0) {
+                Console.WriteLine("hele");
+            }
 
-            Thread piperThread = new Thread(PiperThread);
-            piperThread.Start();
-            Thread deviceThread = new Thread(DeviceThread);
-            deviceThread.Start();
+            Console.WriteLine(Connections.Count);
+
+            Connections.RemoveAll(delegate(ConnectionToClient connection) {
+                bool disconnected = !connection.IsConnected();
+                if (disconnected) {
+                    // dismantle whatever we have
+                    connection.Dispose();
+                }
+                return disconnected;
+            });
+
+            if (NewConnections.Count > 0) {
+                lock (NewConnections) {
+                    Connections.AddRange(NewConnections);
+                    NewConnections.Clear();
+                }
+            }
+        }
+
+        private static void Main(string[] args) {
+            _welcomingPipeServer = CreateNewPipeServer();
+            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
+
+            MainLoop();
         }
 
         static void Main_old(string[] args) {
