@@ -1,14 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
-using System.IO.MemoryMappedFiles;
-using System.IO.Pipes;
-using System.Linq;
-using System.Text;
-using System.Threading;
-using System.Threading.Tasks;
 using MemoryMappedIpcServer.Shared;
+using wyUpdate;
 
 namespace MemoryMappedIpcServer {
     class Program {
@@ -16,18 +10,18 @@ namespace MemoryMappedIpcServer {
         private static readonly List<ConnectionToClient> Connections = new List<ConnectionToClient>();
         private static readonly List<ConnectionToClient> NewConnections = new List<ConnectionToClient>();
 
-        private static void ConnectionReceived(IAsyncResult result) {
+        private static void ConnectionReceived() {
             // when a connection comes in, 
             // open another pipe with the client and create a listener record with it
             // create a mutex and a shmem
 
-            string id = result.AsyncState.ToString();
+            string id = GetNextClientId();
             Console.WriteLine("server received a connection " + id);
 
             // TODO don't forget to do this line upon application exit
-            _welcomingPipeServer.EndWaitForConnection(result);
+            //_welcomingPipeServer.EndWaitForConnection(result);
 
-            NamedPipeServerStream matchedPipeServer = _welcomingPipeServer;
+            PipeServer matchedPipeServer = _welcomingPipeServer;
             var connectionToClient = new ConnectionToClient(id, matchedPipeServer);
             lock (NewConnections) {
                 NewConnections.Add(connectionToClient);
@@ -39,19 +33,26 @@ namespace MemoryMappedIpcServer {
                 // he does not have to say anything
             connectionToClient.Greet();
 
+            matchedPipeServer.StartReadThread(); //so that we detect disconnections
+
             // for the next client, recreate and keep listening
             _welcomingPipeServer = CreateNewPipeServer();
-            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
+            //_welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
 
             // TODO don't forget to do this line upon application exit
             //_welcomingPipeServer.Disconnect();
         }
 
-        private static NamedPipeServerStream CreateNewPipeServer() {
-            return new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        private static PipeServer CreateNewPipeServer() {
+            var pipeServer = new PipeServer();
+            pipeServer.Start(SharedMemoryAccessor.PipeName);
+            pipeServer.ClientConnected += ConnectionReceived;
+            return pipeServer;
+            //return new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         }
 
-        private static NamedPipeServerStream _welcomingPipeServer;
+        private static PipeServer _welcomingPipeServer;
+        //private static NamedPipeServerStream _welcomingPipeServer;
 
         private static int _clientCount = 0;
 
@@ -187,51 +188,11 @@ namespace MemoryMappedIpcServer {
 
         private static void Main(string[] args) {
             _welcomingPipeServer = CreateNewPipeServer();
-            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
+            //_welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
+
 
             MainLoop();
         }
 
-        static void Main_old(string[] args) {
-            using (MemoryMappedFile mmf = MemoryMappedFile.CreateNew("testmap", 10000)) {
-                bool mutexCreated;
-                Mutex mutex = new Mutex(true, "testmapmutex", out mutexCreated);
-                using (MemoryMappedViewStream stream = mmf.CreateViewStream()) {
-                    BinaryWriter writer = new BinaryWriter(stream);
-                    writer.Write(1);
-                }
-                mutex.ReleaseMutex();
-
-                Console.WriteLine("Start Process B and press ENTER to continue.");
-                
-                NamedPipeServerStream pipeServer = new NamedPipeServerStream("testpipe", PipeDirection.InOut, 1);
-                pipeServer.WaitForConnection();
-
-                try {
-                    // Read user input and send that to the client process. 
-                    using (StreamWriter sw = new StreamWriter(pipeServer)) {
-                        sw.AutoFlush = true;
-                        Console.Write("Enter text: ");
-                        sw.WriteLine(Console.ReadLine());
-                    }
-                }
-                // Catch the IOException that is raised if the pipe is broken 
-                // or disconnected. 
-                catch (IOException e) {
-                    Console.WriteLine("ERROR: {0}", e.Message);
-                }
-
-                Console.ReadLine();
-
-                mutex.WaitOne();
-                using (MemoryMappedViewStream stream = mmf.CreateViewStream()) {
-                    BinaryReader reader = new BinaryReader(stream);
-                    Console.WriteLine("Process A says: {0}", reader.ReadBoolean());
-                    Console.WriteLine("Process B says: {0}", reader.ReadBoolean());
-                }
-                mutex.ReleaseMutex();
-            }
-            Console.ReadLine();
-        }
     }
 }

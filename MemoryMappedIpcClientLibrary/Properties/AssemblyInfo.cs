@@ -1,14 +1,15 @@
 ﻿using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following 
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
-[assembly: AssemblyTitle("MemoryMappedIpcClient")]
+[assembly: AssemblyTitle("MemoryMappedIpcClientLibrary")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
-[assembly: AssemblyProduct("MemoryMappedIpcClient")]
+[assembly: AssemblyProduct("MemoryMappedIpcClientLibrary")]
 [assembly: AssemblyCopyright("Copyright ©  2015")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
@@ -19,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("e0afc932-aa71-4e91-9786-c0ae1871e154")]
+[assembly: Guid("e0c04e12-ceb0-4836-b842-282436a7895c")]
 
 // Version information for an assembly consists of the following four values:
 //
