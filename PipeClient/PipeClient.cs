@@ -200,21 +200,27 @@ namespace wyDay.Controls
         /// <returns>True if the message is sent successfully - false otherwise.</returns>
         public bool SendMessage(byte[] message)
         {
-            try
-            {
-                Console.WriteLine("will send message");
-                // write the entire stream length
-                readStream.Write(BitConverter.GetBytes(message.Length), 0, 4);
-                Console.WriteLine("wrote byte length");
-                readStream.Write(message, 0, message.Length);
-                Console.WriteLine("wrote message");
-                readStream.Flush();
-                Console.WriteLine("flushed");
-                return true;
-            }
-            catch
-            {
-                return false;
+            using (StreamWriter w = File.AppendText("vagonlog.txt")) {
+                try
+                {
+                    w.AutoFlush = true;
+                    w.WriteLine("will send message");
+                    // write the entire stream length
+                    var bytes = BitConverter.GetBytes(message.Length);
+                    w.WriteLine("byte length is " + bytes.Length);
+                    readStream.Write(bytes, 0, 4);
+                    w.WriteLine("wrote byte length");
+                    readStream.Write(message, 0, message.Length);
+                    w.WriteLine("wrote message");
+                    readStream.Flush();
+                    w.WriteLine("flushed");
+
+                    return true;
+                }
+                catch(Exception e) {
+                    w.WriteLine(e);
+                    return false;
+                }
             }
         }
     }

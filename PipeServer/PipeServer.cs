@@ -210,7 +210,9 @@ namespace wyUpdate
 
                 if (success != 0) {
                     isConnected = true;
-                    ClientConnected?.Invoke();
+                    if (ClientConnected != null) {
+                        ClientConnected.Invoke();
+                    }
                 }
             }
 
