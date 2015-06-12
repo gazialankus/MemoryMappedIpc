@@ -1,7 +1,8 @@
-﻿using System.IO;
+using System.IO;
 
 namespace MemoryMappedIpcServer.Shared {
     public struct MotionMessage {
+        public byte Wid;
         public bool IsGyro;
         public long Milliseconds;
 
@@ -9,7 +10,8 @@ namespace MemoryMappedIpcServer.Shared {
         public float Y;
         public float Z;
 
-        public MotionMessage(bool isGyro, long milliseconds, float x, float y, float z) {
+        public MotionMessage(byte wid, bool isGyro, long milliseconds, float x, float y, float z) {
+            this.Wid = wid;
             this.IsGyro = isGyro;
             this.Milliseconds = milliseconds;
             this.X = x;
@@ -18,6 +20,7 @@ namespace MemoryMappedIpcServer.Shared {
         }
 
         static public void WriteTo(BinaryWriter bw, MotionMessage m) {
+            bw.Write(m.Wid);
             bw.Write(m.IsGyro);
             bw.Write(m.Milliseconds);
             bw.Write(m.X);
@@ -28,6 +31,7 @@ namespace MemoryMappedIpcServer.Shared {
 
         static public MotionMessage ReadFrom(BinaryReader br) {
             return new MotionMessage(
+                wid: br.ReadByte(),
                 isGyro: br.ReadBoolean(),
                 milliseconds: br.ReadInt64(),
                 x: br.ReadSingle(),
@@ -36,7 +40,7 @@ namespace MemoryMappedIpcServer.Shared {
         }
 
         static public int GetByteSize() {
-            return sizeof (bool) + sizeof (long) + sizeof (float) * 3;
+            return sizeof (byte) + sizeof (bool) + sizeof (long) + sizeof (float) * 3;
         }
     }
 }

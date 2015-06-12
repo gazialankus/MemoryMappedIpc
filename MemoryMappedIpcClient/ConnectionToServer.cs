@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Security.Principal;
@@ -35,6 +35,14 @@ namespace MemoryMappedIpcClient {
 
         public IEnumerable<MotionMessage> GetAvailableLines() {
             return _sharedMemoryAccessor.GetAvailableLinesToClient();
+        }
+
+        public void StartGyroCalibration(byte wid) {
+            _pipeClient.SendMessage(new byte[] { PipeMessage.START_GYRO_CALIBRATION, wid });
+        }
+
+        public void StopGyroCalibration(byte wid) {
+            _pipeClient.SendMessage(new byte[] { PipeMessage.STOP_GYRO_CALIBRATION, wid });
         }
 
         public void Dispose() {

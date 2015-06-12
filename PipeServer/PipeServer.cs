@@ -219,6 +219,7 @@ namespace wyUpdate
             Marshal.FreeCoTaskMem(ptrSA);
         }
 
+        // Is called after connection is established
         public void StartReadThread() {
             Thread readThread = new Thread(Read) {
                 IsBackground = true

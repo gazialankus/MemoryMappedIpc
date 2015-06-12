@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Runtime.InteropServices;
 
 namespace MemoryMappedIpcServer {
@@ -56,8 +56,13 @@ namespace MemoryMappedIpcServer {
         public static extern void wus_get_gyro(int wmi, out float x, out float y, out float z);
 
         [DllImport("wiiuse_simple.dll", CallingConvention = CallingConvention.Cdecl)]
-        public static extern void wus_cleanup();
+        public static extern void wus_get_raw_gyro(int wmi, out short x, out short y, out short z);
 
+        [DllImport("wiiuse_simple.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void wus_set_gyro_calib(byte wmi, short x, short y, short z);
+
+        [DllImport("wiiuse_simple.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void wus_cleanup();
 
     }
 }

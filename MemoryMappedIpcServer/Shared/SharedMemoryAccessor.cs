@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Winterdom.IO.FileMap;
@@ -265,7 +265,7 @@ namespace MemoryMappedIpcServer.Shared {
                 // we've already read some the last time. the server did not have a chance to reorganize. pass this time. 
                 return BlankEnumerableForClient();
             } else if (BufferWrittenLineCount == 0) {
-                Console.WriteLine("still no new line");
+                //Console.WriteLine("still no new line");
                 // the server did not add any new lines, yet.
                 return BlankEnumerableForClient();
             } else {

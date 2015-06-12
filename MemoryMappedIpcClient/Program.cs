@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using MemoryMappedIpcServer.Shared;
 
 namespace MemoryMappedIpcClient {
@@ -37,7 +37,7 @@ namespace MemoryMappedIpcClient {
             //    Console.WriteLine(sharedMemoryAccessor.ReadLine());
             //}
 
-
+            bool calibrating = false;
             for(int ii = 0; ii < 1000; ) {
 //            while(true) { 
                 bool first = true;
@@ -46,10 +46,25 @@ namespace MemoryMappedIpcClient {
                         Console.WriteLine("first");
                         first = false;
                     }
-                    Console.WriteLine("read this: " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
+                    Console.WriteLine("read this: " + i.Wid + " " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
                 }
                 //Console.WriteLine("hit enter");
                 //Console.ReadLine();
+                if (Console.KeyAvailable) {
+                    if (calibrating) {
+                        if (Console.ReadKey().Key == ConsoleKey.Spacebar) {
+                            calibrating = false;
+                            connectionToServer.StopGyroCalibration(0);
+                            Console.WriteLine("stopped calibrating");
+                        }
+                    } else {
+                        if (Console.ReadKey().Key == ConsoleKey.Enter) {
+                            calibrating = true;
+                            connectionToServer.StartGyroCalibration(0);
+                            Console.WriteLine("started calibrating");
+                        } 
+                    }
+                }
             }
             // this doesn't break it either. 
 

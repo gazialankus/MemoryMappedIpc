@@ -63,6 +63,9 @@
     <Compile Include="..\MemoryMappedIpcServer\Shared\MotionMessage.cs">
       <Link>Shared\MotionMessage.cs</Link>
     </Compile>
+    <Compile Include="..\MemoryMappedIpcServer\Shared\PipeMessage.cs">
+      <Link>Shared\PipeMessage.cs</Link>
+    </Compile>
     <Compile Include="..\MemoryMappedIpcServer\Shared\SharedMemoryAccessor.cs">
       <Link>Shared\SharedMemoryAccessor.cs</Link>
     </Compile>

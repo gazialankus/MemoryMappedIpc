@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Threading;
 using MemoryMappedIpcServer.Shared;
@@ -9,6 +10,7 @@ namespace MemoryMappedIpcServer {
 
         // the pipe on the server side
         private PipeServer _pipeServer;
+        private readonly GyroCalibrator _gyroCalibrator;
 
         private readonly BinaryWriter _pipeToClient;
         private readonly string id;
@@ -17,12 +19,14 @@ namespace MemoryMappedIpcServer {
 
         public SharedMemoryAccessor SharedMemoryAccessor { get; private set; }
 
-        public ConnectionToClient(string id, PipeServer matchedPipeServer) {
+        public ConnectionToClient(string id, PipeServer matchedPipeServer, GyroCalibrator gyroCalibrator) {
             this.id = id;
             this._pipeServer = matchedPipeServer;
+            _gyroCalibrator = gyroCalibrator;
             _isConnected = true;
 
             _pipeServer.ClientDisconnected += ConnectionBroken;
+            _pipeServer.MessageReceived += MessageReceived;
 
             // TODO if we're not going to use this for anything other than greeting, perhaps don't keep the stream around
             _pipeToClient = new BinaryWriter(_pipeServer.GetStream());
@@ -46,6 +50,51 @@ namespace MemoryMappedIpcServer {
         private void ConnectionBroken() {
             _isConnected = false;
             Console.WriteLine("****server detected a disconnection.");
+        }
+
+        //private List<short[]> _rawGyroscopeReadings;
+
+        //public bool IsCollectingRawGyro() {
+        //    return _rawGyroscopeReadings != null;
+        //}
+
+        //public void CollectRawGyroscopeReadings() {
+            
+        //}
+
+        //public List<byte> CalibrationDesiredForWiis; 
+
+        private readonly List<byte> _iStartedGyroCalibrationFor = new List<byte>();
+
+        private void MessageReceived(byte[] message) {
+            //TODO client sent a message to server. use it here. 
+            // for example, it may initiate a gyroscope calibration
+            Console.WriteLine("Pipe message received!");
+            if (message[0] == PipeMessage.START_GYRO_CALIBRATION) {
+                byte wid = message[1];
+                bool accepted = _gyroCalibrator.StartCalibrationDesired(wid);
+                Console.WriteLine("m1");
+                if (accepted) {
+                    Console.WriteLine("m1.1");
+                    _iStartedGyroCalibrationFor.Add(wid);
+                }
+            } else if (message[0] == PipeMessage.STOP_GYRO_CALIBRATION) {
+                Console.WriteLine("m2");
+                byte wid = message[1];
+                if (_iStartedGyroCalibrationFor.Contains(wid)) {
+                    Console.WriteLine("m2.1");
+                    _iStartedGyroCalibrationFor.Remove(wid);
+                    _gyroCalibrator.EndCalibrationDesired(wid);
+                }
+
+                // stop collecting raw calibration data. 
+                // create a copy of the ones collected so far
+                // average them.
+                // use this average as the new calibration. 
+            } else {
+                Console.WriteLine("UNKNOWN MESSAGE FROM PIPE");
+            }
+
         }
 
         //private void ConnectionMonitorThread() {

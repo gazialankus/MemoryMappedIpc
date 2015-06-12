@@ -202,11 +202,14 @@ namespace wyDay.Controls
         {
             try
             {
+                Console.WriteLine("will send message");
                 // write the entire stream length
                 readStream.Write(BitConverter.GetBytes(message.Length), 0, 4);
-
+                Console.WriteLine("wrote byte length");
                 readStream.Write(message, 0, message.Length);
+                Console.WriteLine("wrote message");
                 readStream.Flush();
+                Console.WriteLine("flushed");
                 return true;
             }
             catch

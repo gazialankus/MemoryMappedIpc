@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using MemoryMappedIpcServer.Shared;
@@ -9,6 +9,15 @@ namespace MemoryMappedIpcServer {
 
         private static readonly List<ConnectionToClient> Connections = new List<ConnectionToClient>();
         private static readonly List<ConnectionToClient> NewConnections = new List<ConnectionToClient>();
+
+        private static PipeServer CreateNewPipeServer()
+        {
+            var pipeServer = new PipeServer();
+            pipeServer.Start(SharedMemoryAccessor.PipeName);
+            pipeServer.ClientConnected += ConnectionReceived;
+            return pipeServer;
+            //return new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        }
 
         private static void ConnectionReceived() {
             // when a connection comes in, 
@@ -22,7 +31,9 @@ namespace MemoryMappedIpcServer {
             //_welcomingPipeServer.EndWaitForConnection(result);
 
             PipeServer matchedPipeServer = _welcomingPipeServer;
-            var connectionToClient = new ConnectionToClient(id, matchedPipeServer);
+            matchedPipeServer.StartReadThread(); //so that we detect disconnections
+
+            var connectionToClient = new ConnectionToClient(id, matchedPipeServer, _gyroCalibrator);
             lock (NewConnections) {
                 NewConnections.Add(connectionToClient);
             }
@@ -33,7 +44,6 @@ namespace MemoryMappedIpcServer {
                 // he does not have to say anything
             connectionToClient.Greet();
 
-            matchedPipeServer.StartReadThread(); //so that we detect disconnections
 
             // for the next client, recreate and keep listening
             _welcomingPipeServer = CreateNewPipeServer();
@@ -41,14 +51,6 @@ namespace MemoryMappedIpcServer {
 
             // TODO don't forget to do this line upon application exit
             //_welcomingPipeServer.Disconnect();
-        }
-
-        private static PipeServer CreateNewPipeServer() {
-            var pipeServer = new PipeServer();
-            pipeServer.Start(SharedMemoryAccessor.PipeName);
-            pipeServer.ClientConnected += ConnectionReceived;
-            return pipeServer;
-            //return new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
         }
 
         private static PipeServer _welcomingPipeServer;
@@ -72,102 +74,92 @@ namespace MemoryMappedIpcServer {
             if (numConnected == 0) {
                 Console.WriteLine("could not connect to a wii remote");
             } else {
-                int wmi = 0;
-
-                WiiuseSimple.wus_start_accel(wmi);
-                WiiuseSimple.wus_start_gyro(wmi);
+                for (int wmi = 0; wmi < numConnected; ++wmi) {
+                    WiiuseSimple.wus_start_accel(wmi);
+                    WiiuseSimple.wus_start_gyro(wmi);
+                }
 
                 while (true) {
                     RunConnectionMaintenance();
 
-                    if (WiiuseSimple.wus_poll() > 0) {
-                        short buttonsPressed = WiiuseSimple.wus_get_buttons_pressed(wmi);
-                        short buttonsHeld = WiiuseSimple.wus_get_buttons_held(wmi);
-                        short buttonsReleased = WiiuseSimple.wus_get_buttons_released(wmi);
-
+                    if (WiiuseSimple.wus_poll() > 0 && Connections.Count > 0) {
                         long millisecondsNow = stopwatch.ElapsedMilliseconds;
 
-                        foreach (ConnectionToClient connection in Connections) {
+                        for (byte wmi = 0; wmi < numConnected; ++wmi) {
+                            short buttonsPressed = WiiuseSimple.wus_get_buttons_pressed(wmi);
+                            short buttonsHeld = WiiuseSimple.wus_get_buttons_held(wmi);
+                            short buttonsReleased = WiiuseSimple.wus_get_buttons_released(wmi);
+
                             if (WiiuseSimple.wus_accel_received(wmi) > 0) {
                                 float x, y, z;
                                 WiiuseSimple.wus_get_accel(wmi, out x, out y, out z);
-                                Console.WriteLine("accel: " + x + " " + y + " " + z);
+                                if (_verbose) {
+                                    Console.WriteLine("accel: " + x + " " + y + " " + z);
+                                }
 
-                                MotionMessage m;
+                                MotionMessage m = new MotionMessage(
+                                    wid: wmi, 
+                                    isGyro: false, 
+                                    milliseconds: millisecondsNow, 
+                                    x: x, 
+                                    y: y, 
+                                    z: z);
 
-                                m.IsGyro = false;
-                                m.Milliseconds = millisecondsNow; 
-                                m.X = x;
-                                m.Y = y;
-                                m.Z = z;
-
-                                connection.SharedMemoryAccessor.AddLine(m);
+                                foreach (ConnectionToClient connection in Connections)
+                                {
+                                    connection.SharedMemoryAccessor.AddLine(m);
+                                }
                             }
 
-                            if (WiiuseSimple.wus_gyro_received(wmi) > 0) {
+                            if (WiiuseSimple.wus_gyro_received(wmi) > 0)
+                            {
                                 float x, y, z;
                                 WiiuseSimple.wus_get_gyro(wmi, out x, out y, out z);
-                                Console.WriteLine("gyro: " + x + " " + y + " " + z);
+                                if (_verbose) {
+                                    Console.WriteLine("gyro: " + x + " " + y + " " + z);
+                                }
 
-                                MotionMessage m;
+                                MotionMessage m = new MotionMessage(
+                                    wid: wmi,
+                                    isGyro: true,
+                                    milliseconds: millisecondsNow,
+                                    x: x,
+                                    y: y,
+                                    z: z);
 
-                                m.IsGyro = true;
-                                m.Milliseconds = millisecondsNow;
-                                m.X = x;
-                                m.Y = y;
-                                m.Z = z;
+                                foreach (ConnectionToClient connection in Connections)
+                                {
+                                    connection.SharedMemoryAccessor.AddLine(m);
+                                }
 
-                                connection.SharedMemoryAccessor.AddLine(m);
+                                if (_gyroCalibrator.IsCalibrationUnderwayFor(wmi)) {
+                                    short xs, ys, zs;
+                                    WiiuseSimple.wus_get_raw_gyro(wmi, out xs, out ys, out zs);
+                                    _gyroCalibrator.RawGyroReceived(wmi, xs, ys, zs);
+                                }
+
+                                if (_gyroCalibrator.IsCalibrationValuesReadyFor(wmi)) {
+                                    short[] c = _gyroCalibrator.ConsumeCalibrationValuesFor(wmi);
+                                    // use them now
+                                    WiiuseSimple.wus_set_gyro_calib(wmi, c[0], c[1], c[2]);
+                                }
                             }
                         }
-
                     }
                 }
             }
-
-            //int returned = WiiuseSimple.test_wiiuse_simple();
-            //Console.WriteLine("wiiuse connected and returned " + returned);
-
-            //MotionMessage counter = new MotionMessage(true, 1, .1f, .2f, .3f);
-
-            //while (true) {
-            //    if (_connections.Count == 0) {
-            //        Thread.SpinWait(20);
-            //    } else {
-            //        // this will be done through the buffer
-            //        foreach (ConnectionToClient connection in _connections) {
-            //            if (counter.Milliseconds % 1000000 == 0) {
-            //                //connection.MmWriter.Seek(0, SeekOrigin.Begin);
-            //                counter.Milliseconds = 0;
-            //                Console.WriteLine("zeroed");
-            //            }
-            //            //connection.MmWriter.Write(counter);
-            //            connection.SharedMemoryAccessor.AddLine(counter);
-            //            Console.WriteLine("added " + counter);
-            //            ++counter.Milliseconds;
-            //            counter.IsGyro = !counter.IsGyro;
-            //            counter.X += .01f;
-            //            counter.Y += .01f;
-            //            counter.Z += .01f;
-
-            //            Console.ReadLine();
-            //        }
-
-            //        Thread.Sleep(10);
-            //    }
-            //}
-            // device thread
-                // if there are listeners, grab the data (or grab all the time maybe)
-                // do this in mutex
-                    // add the data to each of the listeners 
         }
 
-        private static void RunConnectionMaintenance() {
-            if (Connections.Count > 0) {
-                Console.WriteLine("hele");
-            }
+        private static bool _verbose = false;
 
-            Console.WriteLine(Connections.Count);
+        private static void RunConnectionMaintenance() {
+            if (_verbose) {
+                if (Connections.Count > 0) {
+                    Console.WriteLine("hele");
+                }
+
+                Console.WriteLine(Connections.Count);
+            }
 
             Connections.RemoveAll(delegate(ConnectionToClient connection) {
                 bool disconnected = !connection.IsConnected();
@@ -186,10 +178,10 @@ namespace MemoryMappedIpcServer {
             }
         }
 
+        private static GyroCalibrator _gyroCalibrator = new GyroCalibrator();
+
         private static void Main(string[] args) {
             _welcomingPipeServer = CreateNewPipeServer();
-            //_welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
-
 
             MainLoop();
         }
