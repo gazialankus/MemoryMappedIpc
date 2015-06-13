@@ -9,11 +9,10 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MemoryMappedIpcClient</RootNamespace>
     <AssemblyName>MemoryMappedIpcClient</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <TargetFrameworkProfile>
-    </TargetFrameworkProfile>
+    <TargetFrameworkProfile>Unity Full v3.5</TargetFrameworkProfile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <PlatformTarget>AnyCPU</PlatformTarget>
@@ -70,11 +69,8 @@
     <Compile Include="..\MemoryMappedIpcServer\Shared\SharedMemoryAccessor.cs">
       <Link>Shared\SharedMemoryAccessor.cs</Link>
     </Compile>
-    <Compile Include="..\PipeClient\PipeClient.cs">
-      <Link>Pipe\PipeClient.cs</Link>
-    </Compile>
     <Compile Include="ConnectionToServer.cs" />
-    <Compile Include="Program.cs" />
+    <Compile Include="ClientProgram.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>

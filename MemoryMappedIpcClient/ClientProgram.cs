@@ -2,7 +2,7 @@ using System;
 using MemoryMappedIpcServer.Shared;
 
 namespace MemoryMappedIpcClient {
-    class Program {
+    class ClientProgram {
         private static void Main(string[] args) {
 
             ConnectionToServer connectionToServer = new ConnectionToServer();
@@ -38,34 +38,54 @@ namespace MemoryMappedIpcClient {
             //}
 
             bool calibrating = false;
-            for(int ii = 0; ii < 1000; ) {
+            for (int ii = 0;; ++ii) {
 //            while(true) { 
                 bool first = true;
                 foreach (MotionMessage i in connectionToServer.GetAvailableLines()) {
                     if (first) {
-                        Console.WriteLine("first");
+                        //Console.WriteLine("first");
                         first = false;
                     }
-                    Console.WriteLine("read this: " + i.Wid + " " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
+                    //Console.WriteLine("read this: " + i.Wid + " " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
                 }
                 //Console.WriteLine("hit enter");
                 //Console.ReadLine();
-                if (Console.KeyAvailable) {
-                    if (calibrating) {
-                        if (Console.ReadKey().Key == ConsoleKey.Spacebar) {
-                            calibrating = false;
-                            connectionToServer.StopGyroCalibration(0);
-                            Console.WriteLine("stopped calibrating");
-                        }
-                    } else {
-                        if (Console.ReadKey().Key == ConsoleKey.Enter) {
-                            calibrating = true;
-                            connectionToServer.StartGyroCalibration(0);
-                            Console.WriteLine("started calibrating");
-                        } 
-                    }
+                // TODO instead of user input, use the value of ii to decide when to start and stop calibration. 
+                //Console.WriteLine(ii);
+
+
+
+                if (ii == 1000000) {
+                    calibrating = true;
+                    connectionToServer.StartGyroCalibration(0);
+                    Console.WriteLine("started calibrating");
                 }
+                if (ii == 2000000) {
+                    calibrating = false;
+                    connectionToServer.StopGyroCalibration(0);
+                    Console.WriteLine("stopped calibrating");
+                }
+
+
+
+                //if (Console.InKeyAvailable) {
+                //    if (calibrating) {
+                //        if (Console.ReadKey().Key == ConsoleKey.Spacebar) {
+                //            calibrating = false;
+                //            connectionToServer.StopGyroCalibration(0);
+                //            Console.WriteLine("stopped calibrating");
+                //        }
+                //    } else {
+                //        if (Console.ReadKey().Key == ConsoleKey.Enter) {
+                //            calibrating = true;
+                //            connectionToServer.StartGyroCalibration(0);
+                //            Console.WriteLine("started calibrating");
+                //        } 
+                //    }
+                //}
             }
+
+
             // this doesn't break it either. 
 
             connectionToServer.Dispose();

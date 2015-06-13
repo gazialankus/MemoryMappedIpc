@@ -1,8 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO.Pipes;
 using MemoryMappedIpcServer.Shared;
-using wyUpdate;
 
 namespace MemoryMappedIpcServer {
     class Program {
@@ -10,16 +10,13 @@ namespace MemoryMappedIpcServer {
         private static readonly List<ConnectionToClient> Connections = new List<ConnectionToClient>();
         private static readonly List<ConnectionToClient> NewConnections = new List<ConnectionToClient>();
 
-        private static PipeServer CreateNewPipeServer()
-        {
-            var pipeServer = new PipeServer();
-            pipeServer.Start(SharedMemoryAccessor.PipeName);
-            pipeServer.ClientConnected += ConnectionReceived;
-            return pipeServer;
-            //return new NamedPipeServerStream("wii_welcomer_pipe", PipeDirection.InOut, NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+        private static NamedPipeServerStream CreateNewPipeServer() {
+            var namedPipeServerStream = new NamedPipeServerStream(SharedMemoryAccessor.PipeName, PipeDirection.InOut,
+                NamedPipeServerStream.MaxAllowedServerInstances, PipeTransmissionMode.Byte, PipeOptions.Asynchronous);
+            return namedPipeServerStream;
         }
 
-        private static void ConnectionReceived() {
+        private static void ConnectionReceived(IAsyncResult result) {
             // when a connection comes in, 
             // open another pipe with the client and create a listener record with it
             // create a mutex and a shmem
@@ -28,11 +25,9 @@ namespace MemoryMappedIpcServer {
             Console.WriteLine("server received a connection " + id);
 
             // TODO don't forget to do this line upon application exit
-            //_welcomingPipeServer.EndWaitForConnection(result);
+            _welcomingPipeServer.EndWaitForConnection(result);
 
-            PipeServer matchedPipeServer = _welcomingPipeServer;
-            matchedPipeServer.StartReadThread(); //so that we detect disconnections
-
+            NamedPipeServerStream matchedPipeServer = _welcomingPipeServer;
             var connectionToClient = new ConnectionToClient(id, matchedPipeServer, _gyroCalibrator);
             lock (NewConnections) {
                 NewConnections.Add(connectionToClient);
@@ -47,14 +42,13 @@ namespace MemoryMappedIpcServer {
 
             // for the next client, recreate and keep listening
             _welcomingPipeServer = CreateNewPipeServer();
-            //_welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
+            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
 
             // TODO don't forget to do this line upon application exit
             //_welcomingPipeServer.Disconnect();
         }
 
-        private static PipeServer _welcomingPipeServer;
-        //private static NamedPipeServerStream _welcomingPipeServer;
+        private static NamedPipeServerStream _welcomingPipeServer;
 
         private static int _clientCount = 0;
 
@@ -178,12 +172,14 @@ namespace MemoryMappedIpcServer {
             }
         }
 
-        private static GyroCalibrator _gyroCalibrator = new GyroCalibrator();
+        private static readonly GyroCalibrator _gyroCalibrator = new GyroCalibrator();
 
         private static void Main(string[] args) {
             _welcomingPipeServer = CreateNewPipeServer();
+            _welcomingPipeServer.BeginWaitForConnection(ConnectionReceived, GetNextClientId());
 
             MainLoop();
+            Console.ReadLine();
         }
 
     }

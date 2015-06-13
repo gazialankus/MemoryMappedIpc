@@ -1,15 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.IO.Pipes;
 using System.Threading;
 using MemoryMappedIpcServer.Shared;
-using wyUpdate;
 
 namespace MemoryMappedIpcServer {
     class ConnectionToClient {
 
         // the pipe on the server side
-        private PipeServer _pipeServer;
+        private readonly NamedPipeServerStream _pipeServer;
         private readonly GyroCalibrator _gyroCalibrator;
 
         private readonly BinaryWriter _pipeToClient;
@@ -19,17 +19,13 @@ namespace MemoryMappedIpcServer {
 
         public SharedMemoryAccessor SharedMemoryAccessor { get; private set; }
 
-        public ConnectionToClient(string id, PipeServer matchedPipeServer, GyroCalibrator gyroCalibrator) {
+        public ConnectionToClient(string id, NamedPipeServerStream matchedPipeServer, GyroCalibrator gyroCalibrator) {
             this.id = id;
             this._pipeServer = matchedPipeServer;
             _gyroCalibrator = gyroCalibrator;
-            _isConnected = true;
-
-            _pipeServer.ClientDisconnected += ConnectionBroken;
-            _pipeServer.MessageReceived += MessageReceived;
 
             // TODO if we're not going to use this for anything other than greeting, perhaps don't keep the stream around
-            _pipeToClient = new BinaryWriter(_pipeServer.GetStream());
+            _pipeToClient = new BinaryWriter(_pipeServer);
 
             int lineSize = MotionMessage.GetByteSize();
             int totalBufferSizeInLines = 100;
@@ -40,17 +36,11 @@ namespace MemoryMappedIpcServer {
                 lineSize: lineSize, 
                 totalBufferSizeInLines: totalBufferSizeInLines);
 
+            //Read99();
+            //Send100();
 
-            //Thread connectionMonitorThread = new Thread(ConnectionMonitorThread);
-            //connectionMonitorThread.Start();
         }
 
-        private bool _isConnected;
-
-        private void ConnectionBroken() {
-            _isConnected = false;
-            Console.WriteLine("****server detected a disconnection.");
-        }
 
         //private List<short[]> _rawGyroscopeReadings;
 
@@ -66,6 +56,7 @@ namespace MemoryMappedIpcServer {
 
         private readonly List<byte> _iStartedGyroCalibrationFor = new List<byte>();
 
+        // TODO TODO this is how you should receive a message. this is not called now. 
         private void MessageReceived(byte[] message) {
             //TODO client sent a message to server. use it here. 
             // for example, it may initiate a gyroscope calibration
@@ -94,38 +85,102 @@ namespace MemoryMappedIpcServer {
             } else {
                 Console.WriteLine("UNKNOWN MESSAGE FROM PIPE");
             }
-
         }
 
-        //private void ConnectionMonitorThread() {
-        //    // If you need to actually read from the client, you have to modify this to get data as well.
-        //    while (_pipeServer.IsConnected) {
-        //        // create a request and wait on it
-        //        IAsyncResult asyncResult = null;
-        //        try {
-        //            asyncResult = _pipeServer.BeginRead(buffer: ConnectionTestingByteArray,
-        //                offset: 0,
-        //                count: 0,
-        //                callback: null,
-        //                state: null);
-        //        } catch (Exception) {
-        //            _pipeServer.Close();
-        //        } finally {
-        //            if (asyncResult != null) {
-        //                _pipeServer.EndRead(asyncResult);
-        //                _pipeServer.Close();
-        //            }
-        //        }
-        //    }
-        //    Console.WriteLine("****server detected a disconnection");
-        //}
+        private void ConnectionMonitorThread() {
+            // TODO detect that the pipe is closed, just like I used to in the async case. 
+            // TODO that was the only way I detected that the client app is killed
+            BinaryReader br = new BinaryReader(_pipeServer);
+            while (_pipeServer.IsConnected) {
+                try {
+                    Console.WriteLine("WILL READ MESSAGE");
+                    int msgType = br.ReadByte();
+                    Console.WriteLine("DID READ " + msgType);
+                    int wid;
+                    switch (msgType) {
+                        case PipeMessage.START_GYRO_CALIBRATION:
+                            wid = br.ReadByte();
+                            Console.WriteLine("MSG: Start Gyro Calib for " + wid);
+                            break;
+                        case PipeMessage.STOP_GYRO_CALIBRATION:
+                            wid = br.ReadByte();
+                            Console.WriteLine("MSG: STOP Gyro Calib for " + wid);
+                            break;
+                        default:
+                            Console.WriteLine("UNKNOWN MESSAGE!!! " + msgType);
+                            break;
+                    }
+                } catch (EndOfStreamException e) {
+                    Console.WriteLine("END OF STREAM!");
+                    Console.WriteLine(e);
+                    _pipeServer.Close();
+                }
+            }
+            Console.WriteLine("PIPE IS DISCONNECTED!!!!");
+        }
+
+        private void ConnectionMonitorThread_async() {
+            // If you need to actually read from the client, you have to modify this to get data as well.
+            while (_pipeServer.IsConnected) {
+                // create a request and wait on it
+                IAsyncResult asyncResult = null;
+                int currentOffset = 0;
+                try {
+                    asyncResult = _pipeServer.BeginRead(buffer: ConnectionTestingByteArray,
+                        offset: currentOffset,
+                        count: 4,
+                        callback: null,
+                        state: null);
+                    currentOffset += 4;
+                } catch (Exception e) {
+                    //_pipeServer.Close();
+                    Console.WriteLine("exception");
+                    Console.WriteLine(e);
+                } finally {
+                    if (asyncResult != null) {
+                        _pipeServer.EndRead(asyncResult);
+                        //_pipeServer.Close();
+                    }
+                    Console.WriteLine("****FINALLY HIT");
+                }
+
+                var int32 = BitConverter.ToInt32(ConnectionTestingByteArray, 0);
+                Console.WriteLine("R: " + int32);
+                Console.Out.Flush();
+
+            }
+            Console.WriteLine("****server detected a disconnection");
+        }
+
+        private void Read99() {
+            // async read works fine.
+            IAsyncResult asyncResult = _pipeServer.BeginRead(buffer: ConnectionTestingByteArray,
+                offset: 0,
+                count: 4,
+                callback: null,
+                state: null);
+            _pipeServer.EndRead(asyncResult);
+            var int32 = BitConverter.ToInt32(ConnectionTestingByteArray, 0);
+            Console.WriteLine(int32);
+            Console.Out.Flush();
+
+            //BinaryReader br = new BinaryReader(_pipeServer);
+            //int read99 = br.ReadInt32();
+            //Console.WriteLine(read99);
+            //Console.Out.Flush();
+        }
+
+        private void Send100() {
+            BinaryWriter bw = new BinaryWriter(_pipeServer);
+            bw.Write(100);
+            bw.Flush();
+        }
 
 
-        private static readonly byte[] ConnectionTestingByteArray = new byte[] {0x20};
+        private static readonly byte[] ConnectionTestingByteArray = new byte[] {0, 0, 0, 0};
 
         public bool IsConnected() {
-            return _isConnected;
-            //return _pipeServer.IsConnected;
+            return _pipeServer.IsConnected;
             //if (!_pipeServer.IsConnected) {
             //    return false;
             //} else {
@@ -161,18 +216,6 @@ namespace MemoryMappedIpcServer {
             SharedMemoryAccessor.CleanUp();
         }
 
-        static byte[] GetBytes(string str) {
-            byte[] bytes = new byte[str.Length * sizeof(char)];
-            System.Buffer.BlockCopy(str.ToCharArray(), 0, bytes, 0, bytes.Length);
-            return bytes;
-        }
-
-        static string GetString(byte[] bytes) {
-            char[] chars = new char[bytes.Length / sizeof(char)];
-            System.Buffer.BlockCopy(bytes, 0, chars, 0, bytes.Length);
-            return new string(chars);
-        }
-
         public void Greet() {
             _pipeToClient.Write(id);
             _pipeToClient.Write(SharedMemoryAccessor.LineSize);
@@ -183,6 +226,9 @@ namespace MemoryMappedIpcServer {
             //_pipeServer.SendMessage(BitConverter.GetBytes(SharedMemoryAccessor.TotalBufferSizeInLines));
 
             _pipeToClient.Flush(); // TODO see if this is necessary
+
+            Thread connectionMonitorThread = new Thread(ConnectionMonitorThread);
+            connectionMonitorThread.Start();
         }
     }
 }

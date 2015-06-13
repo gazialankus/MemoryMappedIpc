@@ -45,11 +45,12 @@ namespace wyDay.Controls
 
         const int BUFFER_SIZE = 4096;
 
-        public Stream GetStream() {
+        public Stream GetReadStream() {
             return readStream;
         }
 
         FileStream readStream;
+        FileStream writeStream;
         SafeFileHandle handle;
         Thread readThread;
 
@@ -189,7 +190,8 @@ namespace wyDay.Controls
         }
 
         private void CreateReadStream() {
-            readStream = new FileStream(handle, FileAccess.ReadWrite, BUFFER_SIZE, true);
+            readStream = new FileStream(handle, FileAccess.Read, BUFFER_SIZE, true);
+            writeStream = new FileStream(handle, FileAccess.Write, BUFFER_SIZE, true);
         }
 
 
@@ -208,11 +210,13 @@ namespace wyDay.Controls
                     // write the entire stream length
                     var bytes = BitConverter.GetBytes(message.Length);
                     w.WriteLine("byte length is " + bytes.Length);
-                    readStream.Write(bytes, 0, 4);
+                    //writeStream.Write(new byte[] { 1 }, 0, 1);
+                    //writeStream.Write(new byte[] { 1 }, 0, 1);
+                    writeStream.Write(bytes, 0, 4);
                     w.WriteLine("wrote byte length");
-                    readStream.Write(message, 0, message.Length);
+                    writeStream.Write(message, 0, message.Length);
                     w.WriteLine("wrote message");
-                    readStream.Flush();
+                    writeStream.Flush();
                     w.WriteLine("flushed");
 
                     return true;

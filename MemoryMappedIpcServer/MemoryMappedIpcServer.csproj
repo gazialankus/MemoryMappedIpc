@@ -9,7 +9,7 @@
     <AppDesignerFolder>Properties</AppDesignerFolder>
     <RootNamespace>MemoryMappedIpcServer</RootNamespace>
     <AssemblyName>MemoryMappedIpcServer</AssemblyName>
-    <TargetFrameworkVersion>v2.0</TargetFrameworkVersion>
+    <TargetFrameworkVersion>v3.5</TargetFrameworkVersion>
     <FileAlignment>512</FileAlignment>
     <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
     <TargetFrameworkProfile>
@@ -61,9 +61,6 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="..\PipeServer\PipeServer.cs">
-      <Link>Pipe\PipeServer.cs</Link>
-    </Compile>
     <Compile Include="ConnectionToClient.cs" />
     <Compile Include="GyroCalibrator.cs" />
     <Compile Include="Program.cs" />
