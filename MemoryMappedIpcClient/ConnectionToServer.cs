@@ -8,9 +8,13 @@ using MemoryMappedIpcServer.Shared;
 namespace MemoryMappedIpcClient {
     public class ConnectionToServer {
         public ConnectionToServer() {
-            _pipeClient = new NamedPipeClientStream(".", SharedMemoryAccessor.PipeName,
-                PipeDirection.InOut, PipeOptions.None,
-                TokenImpersonationLevel.Impersonation);
+            //_pipeClient = new NamedPipeClientStream(".", SharedMemoryAccessor.PipeName,
+            //    PipeDirection.InOut, PipeOptions.None,
+            //    TokenImpersonationLevel.Impersonation);
+
+            _pipeClient = new NamedPipeClientStream(SharedMemoryAccessor.PipeName); //"wii_welcomer_pipe"
+
+            //_pipeClient = new NamedPipeClientStream(".", SharedMemoryAccessor.PipeName, PipeDirection.InOut);
 
             Console.WriteLine("Connecting to server...\n");
             _pipeClient.Connect();

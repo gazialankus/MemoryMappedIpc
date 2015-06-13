@@ -63,20 +63,10 @@ namespace MemoryMappedIpcServer {
             Console.WriteLine("Pipe message received!");
             if (message[0] == PipeMessage.START_GYRO_CALIBRATION) {
                 byte wid = message[1];
-                bool accepted = _gyroCalibrator.StartCalibrationDesired(wid);
-                Console.WriteLine("m1");
-                if (accepted) {
-                    Console.WriteLine("m1.1");
-                    _iStartedGyroCalibrationFor.Add(wid);
-                }
+                StartCalibrationDesired(wid);
             } else if (message[0] == PipeMessage.STOP_GYRO_CALIBRATION) {
-                Console.WriteLine("m2");
                 byte wid = message[1];
-                if (_iStartedGyroCalibrationFor.Contains(wid)) {
-                    Console.WriteLine("m2.1");
-                    _iStartedGyroCalibrationFor.Remove(wid);
-                    _gyroCalibrator.EndCalibrationDesired(wid);
-                }
+                StopCalibrationDesired(wid);
 
                 // stop collecting raw calibration data. 
                 // create a copy of the ones collected so far
@@ -87,30 +77,50 @@ namespace MemoryMappedIpcServer {
             }
         }
 
+        private void StopCalibrationDesired(byte wid) {
+            Console.WriteLine("m2");
+            if (_iStartedGyroCalibrationFor.Contains(wid)) {
+                Console.WriteLine("m2.1");
+                _iStartedGyroCalibrationFor.Remove(wid);
+                _gyroCalibrator.EndCalibrationDesired(wid);
+            }
+        }
+
+        private void StartCalibrationDesired(byte wid) {
+            bool accepted = _gyroCalibrator.StartCalibrationDesired(wid);
+            Console.WriteLine("m1");
+            if (accepted) {
+                Console.WriteLine("m1.1");
+                _iStartedGyroCalibrationFor.Add(wid);
+            }
+        }
+
         private void ConnectionMonitorThread() {
-            // TODO detect that the pipe is closed, just like I used to in the async case. 
-            // TODO that was the only way I detected that the client app is killed
             BinaryReader br = new BinaryReader(_pipeServer);
             while (_pipeServer.IsConnected) {
                 try {
                     Console.WriteLine("WILL READ MESSAGE");
                     int msgType = br.ReadByte();
                     Console.WriteLine("DID READ " + msgType);
-                    int wid;
+                    byte wid;
                     switch (msgType) {
                         case PipeMessage.START_GYRO_CALIBRATION:
                             wid = br.ReadByte();
                             Console.WriteLine("MSG: Start Gyro Calib for " + wid);
+                            StartCalibrationDesired(wid);
                             break;
                         case PipeMessage.STOP_GYRO_CALIBRATION:
                             wid = br.ReadByte();
                             Console.WriteLine("MSG: STOP Gyro Calib for " + wid);
+                            StopCalibrationDesired(wid);
                             break;
                         default:
                             Console.WriteLine("UNKNOWN MESSAGE!!! " + msgType);
                             break;
                     }
                 } catch (EndOfStreamException e) {
+                    // detect that the pipe is closed, just like I used to in the async case. 
+                    // that was the only way I detected that the client app is killed
                     Console.WriteLine("END OF STREAM!");
                     Console.WriteLine(e);
                     _pipeServer.Close();

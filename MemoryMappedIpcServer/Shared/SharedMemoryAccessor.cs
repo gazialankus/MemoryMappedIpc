@@ -7,7 +7,8 @@ using Winterdom.IO.FileMap;
 namespace MemoryMappedIpcServer.Shared {
     class SharedMemoryAccessor {
 
-        public static string PipeName = "\\\\.\\pipe\\wii_welcomer_pipe";
+//        public static string PipeName = "\\\\.\\pipe\\wii_welcomer_pipe";
+        public static string PipeName = "wii_welcomer_pipe";
 
         private readonly MemoryMappedFile _memoryMappedFile;
         private readonly string _clientId;
