@@ -76,6 +76,7 @@ namespace MemoryMappedIpcClient {
         }
 
         public void Dispose() {
+            // this is never called by Unity. This should not be the reason for Unity crashes upon stopping the game. 
             _pipeClient.Dispose();
             // TODO there should be more here. read up on how to encapsulate disposables in other disposables
         }
