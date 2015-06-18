@@ -8,29 +8,49 @@ namespace MemoryMappedIpcServer.Shared {
     class SharedMemoryAccessor {
 
 //        public static string PipeName = "\\\\.\\pipe\\wii_welcomer_pipe";
-        public static string PipeName = "wii_welcomer_pipe";
+        //public static string PipeName = "wii_welcomer_pipe";
 
         private readonly MemoryMappedFile _memoryMappedFile;
-        private readonly string _clientId;
+        private readonly int _clientId;
         private readonly bool _isServer;
         // for server
         private BinaryWriter _bufferWriter;
         // for client
         private BinaryReader _bufferReader;
 
-        public SharedMemoryAccessor(String clientId, bool isServer, int lineSize, int totalBufferSizeInLines) {
+        public SharedMemoryAccessor(int clientId, bool isServer, int lineSize, int totalBufferSizeInLines) {
 
-            this.LineSize = lineSize;
-            this.TotalBufferSizeInLines = totalBufferSizeInLines;
             this._clientId = clientId;
             _isServer = isServer;
 
             var memoryMapName = "wii_" + _clientId;
 
+            int currentLocation;
+            _bufferStartingLineAddress = currentLocation = 0;
+            currentLocation = currentLocation + sizeof(int);
+            _bufferWrittenLineCountAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientHasReadThisManyLinesAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientWantsGyroRecalibrationForAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientSuppliedGyroRecalibrationAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _gyroCalibrationXAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _gyroCalibrationYAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _gyroCalibrationZAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientClosedConnectionAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            int headerSize = currentLocation;
+
+
             _memoryMappedFile = isServer
                 ? MemoryMappedFile.Create(
                     protection: MapProtection.PageReadWrite,
-                    maxSize: CalculateSharedMemorySizeInBytes(lineSize, totalBufferSizeInLines),
+                    maxSize: headerSize + lineSize * totalBufferSizeInLines,
                     name: memoryMapName)
                 : MemoryMappedFile.Open(
                     access: MapAccess.FileMapAllAccess,
@@ -46,16 +66,11 @@ namespace MemoryMappedIpcServer.Shared {
             _headerAccessor = _memoryMappedFile.MapView(
                 access: MapAccess.FileMapAllAccess,
                 offset: 0,
-                size: CalculateHeaderSizeInBytes());
+                size: headerSize);
             _headerReader = new BinaryReader(_headerAccessor);
             _headerWriter = new BinaryWriter(_headerAccessor);
 
-            int currentLocation;
-            _bufferStartingLineAddress = currentLocation = 0;
-            _bufferWrittenLineCountAddress = currentLocation = currentLocation + sizeof(int);
-            _clientHasReadThisManyLinesAddress = currentLocation = currentLocation + sizeof(int);
 
-            //TODO these accessors are streams. should prevent advancing them when I read and write. 
             //_bufferStartingLineAccessor = _memoryMappedFile.MapView(
             //    access: isServer ? MapAccess.FileMapWrite : MapAccess.FileMapRead,
             //    offset: 2 * sizeof(int), //zero, actually. but was lazy to change the others. 
@@ -95,7 +110,7 @@ namespace MemoryMappedIpcServer.Shared {
             //    size: sizeof(int),
             //    access: MemoryMappedFileAccess.ReadWrite); // both read and write this
 
-            _bufferOffset = CalculateHeaderSizeInBytes();
+            _bufferOffset = headerSize;
 
             _mmStream = _memoryMappedFile.MapView(
                 access: isServer ? MapAccess.FileMapWrite : MapAccess.FileMapRead,
@@ -113,12 +128,15 @@ namespace MemoryMappedIpcServer.Shared {
                 _bufferReader = new BinaryReader(_mmStream);
             }
             SeekToLine(0);
-        }
 
-        private readonly Stream _mmStream;
+            this.LineSize = lineSize;
+            this.TotalBufferSizeInLines = totalBufferSizeInLines;
+        }
 
         public int LineSize { get; private set; }
         public int TotalBufferSizeInLines { get; private set; }
+
+        private readonly Stream _mmStream;
 
         private int ReadIntFromHeader(int address) {
             long oldPosition = _headerAccessor.Position;
@@ -194,26 +212,84 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
+        public int ClientWantsGyroRecalibrationFor {
+            get {
+                return ReadIntFromHeader(_clientWantsGyroRecalibrationForAddress);
+            }
+            set {
+                WriteIntToHeader(_clientWantsGyroRecalibrationForAddress, value);
+            }
+        }
+
+        public bool ClientSuppliedGyroRecalibration {
+            get {
+                return ReadIntFromHeader(_clientSuppliedGyroRecalibrationAddress) != 0;
+            }
+            set {
+                WriteIntToHeader(_clientSuppliedGyroRecalibrationAddress, value ? 1 : 0);
+            }
+        }
+
+        public short[] GyroCalibrationValues {
+            get {
+                return new short[3] {
+                    (short) ReadIntFromHeader(_gyroCalibrationXAddress), 
+                    (short) ReadIntFromHeader(_gyroCalibrationYAddress), 
+                    (short) ReadIntFromHeader(_gyroCalibrationZAddress),
+                };
+            }
+            set {
+                WriteIntToHeader(_gyroCalibrationXAddress, value[0]);
+                WriteIntToHeader(_gyroCalibrationYAddress, value[1]);
+                WriteIntToHeader(_gyroCalibrationZAddress, value[2]);
+            }
+        }
+
+        public bool ClientClosedConnection {
+            get {
+                return ReadIntFromHeader(_clientClosedConnectionAddress) != 0;
+            }
+            set {
+                WriteIntToHeader(_clientClosedConnectionAddress, value ? 1 : 0);
+            }
+        }
+
         private readonly Stream _headerAccessor;
         private readonly BinaryReader _headerReader;
         private readonly BinaryWriter _headerWriter;
         private readonly int _bufferStartingLineAddress;
         private readonly int _bufferWrittenLineCountAddress;
         private readonly int _clientHasReadThisManyLinesAddress;
+        private readonly int _clientWantsGyroRecalibrationForAddress;
+        private readonly int _clientSuppliedGyroRecalibrationAddress;
+        private readonly int _gyroCalibrationXAddress; 
+        private readonly int _gyroCalibrationYAddress;
+        private readonly int _gyroCalibrationZAddress;
+        private readonly int _clientClosedConnectionAddress;
+
+
         private readonly int _bufferOffset;
 
-        static private long CalculateSharedMemorySizeInBytes(int lineSize, int totalBufferSizeInLines) {
-            return CalculateHeaderSizeInBytes() 
-                + lineSize * totalBufferSizeInLines;
-        }
+        //static private long CalculateSharedMemorySizeInBytes(int lineSize, int totalBufferSizeInLines) {
+        //    return CalculateHeaderSizeInBytes() 
+        //        + lineSize * totalBufferSizeInLines;
+        //}
 
-        private static int CalculateHeaderSizeInBytes() {
-            return sizeof (int) // _bufferStartingLine
-                + sizeof (int) // _bufferWrittenLineCount
-                + sizeof (int); // _clientHasReadThisManyLines
-                //+ sizeof (int) // _totalBufferSizeInLines
-                //+ sizeof (int); // _lineSize;
-        }
+        //private static int CalculateHeaderSizeInBytes() {
+        //    return sizeof (int) // _bufferStartingLine
+        //           + sizeof (int) // _bufferWrittenLineCount
+        //           + sizeof (int) // _clientHasReadThisManyLines
+        //           + sizeof (int) // _clientWantsGyroRecalibrationAddress
+        //           + sizeof (int) // _clientSuppliedGyroRecalibrationAddress
+        //           + 3 * sizeof (int) //_gyroCalibrationXAddress, _gyroCalibrationYAddress, _gyroCalibrationZAddress
+        //           //+ sizeof (int) // _numberOfClienRequestsAddress;
+        //           //+ sizeof (int) // _numberOfAcceptedClientsAddress;
+        //           //+ sizeof (int) // _lineSizeAddress;
+        //           //+ sizeof (int) // _totalBufferSizeInLinesAddress;
+        //        ;
+        //    //+ sizeof (int) // _totalBufferSizeInLines
+        //    //+ sizeof (int); // _lineSize;
+        //}
 
         // with the help of this, both writer and reader know where they are. use it to complete the protocol. 
         private long GetLinePos() {
@@ -224,11 +300,27 @@ namespace MemoryMappedIpcServer.Shared {
             _mmStream.Seek(_bufferOffset + where * LineSize, SeekOrigin.Begin);
         }
 
-        public void AddLine(MotionMessage m) {
+        public void AddLine(AbstractMessage m) {
             // did the client read in the meantime? (the client can read while stuff below are happening. make sure they don't break stuff.)
                 // if so, we'll have to rearrange the buffer
                 // if not, we'll just write and go on
 
+            PrepareClientForWriting();
+
+
+            //write
+            if (GetLinePos() == TotalBufferSizeInLines) {
+                SeekToLine(0);
+                Console.WriteLine("server looped back to start");
+            }
+            m.WriteTo(_bufferWriter);
+
+            // advance
+            ++BufferWrittenLineCount;
+        }
+
+        private void PrepareClientForWriting()
+        {
             // did the client read in the meantime? (the client can read while stuff below are happening. make sure they don't break stuff.)
             int clientHasReadThisManyLinesCopy = ClientHasReadThisManyLines; // copy for efficiency
             if (clientHasReadThisManyLinesCopy > 0) {
@@ -242,22 +334,12 @@ namespace MemoryMappedIpcServer.Shared {
 
                 // now I can tell the client that it's safe to read again. 
                 ClientHasReadThisManyLines = 0;
-            } 
+            }
             // either case, we'll just write and go on
             // first write, then advance. so that the client does not read unwritten buffer in the meantime. 
-
-            //write
-            if (GetLinePos() == TotalBufferSizeInLines) {
-                SeekToLine(0);
-                Console.WriteLine("server looped back to start");
-            }
-            MotionMessage.WriteTo(_bufferWriter, m);
-
-            // advance
-            ++BufferWrittenLineCount;
         }
 
-        public IEnumerable<MotionMessage> GetAvailableLinesToClient() {
+        public IEnumerable<AbstractMessage> GetAvailableLinesToClient() {
             // if there are available lines, tell the server that you have read them and return them 
             // I should always seek here, because if the client does not actually read them, the stream does not advance. 
 
@@ -275,7 +357,7 @@ namespace MemoryMappedIpcServer.Shared {
 
                 // does it matter when I report this? reporting this causes the server to rearrange stuff. so maybe hold on to it. 
 
-                IEnumerable<MotionMessage> enumerable = EnumerateForClient(bufferWrittenLineCountCopy);
+                IEnumerable<AbstractMessage> enumerable = EnumerateForClient(bufferWrittenLineCountCopy);
 
                 // report this late so that the server can start the rearrangements after we have done our reading. 
                 // what if we don't do the reading? well then we should do the enumerator in another function.
@@ -286,11 +368,11 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
-        private IEnumerable<MotionMessage> BlankEnumerableForClient() {
+        private IEnumerable<AbstractMessage> BlankEnumerableForClient() {
             yield break;
         }
 
-        private IEnumerable<MotionMessage> EnumerateForClient(int bufferWrittenLineCountCopy) {
+        private IEnumerable<AbstractMessage> EnumerateForClient(int bufferWrittenLineCountCopy) {
             // read them, starting from BufferStartingLine, and as many as BufferWrittenLineCount
             // need to seek to BufferStartingLine
             SeekToLine(BufferStartingLine);
@@ -301,7 +383,7 @@ namespace MemoryMappedIpcServer.Shared {
                     SeekToLine(0);
                 }
 
-                yield return MotionMessage.ReadFrom(_bufferReader);
+                yield return AbstractMessage.ReadFrom(_bufferReader);
             }
             yield break;
             //int endLine = BufferStartingLine + BufferWrittenLineCount;

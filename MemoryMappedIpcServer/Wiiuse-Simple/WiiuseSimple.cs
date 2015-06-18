@@ -62,6 +62,9 @@ namespace MemoryMappedIpcServer {
         public static extern void wus_set_gyro_calib(byte wmi, short x, short y, short z);
 
         [DllImport("wiiuse_simple.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void wus_get_gyro_calib(byte wmi, out short x, out short y, out short z);
+
+        [DllImport("wiiuse_simple.dll", CallingConvention = CallingConvention.Cdecl)]
         public static extern void wus_cleanup();
 
     }

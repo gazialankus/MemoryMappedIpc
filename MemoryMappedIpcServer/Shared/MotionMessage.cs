@@ -1,46 +1,35 @@
+using System;
 using System.IO;
 
 namespace MemoryMappedIpcServer.Shared {
-    public struct MotionMessage {
-        public byte Wid;
-        public bool IsGyro;
-        public long Milliseconds;
 
+    public class MotionMessage : AbstractMessage {
         public float X;
         public float Y;
         public float Z;
 
-        public MotionMessage(byte wid, bool isGyro, long milliseconds, float x, float y, float z) {
-            this.Wid = wid;
-            this.IsGyro = isGyro;
-            this.Milliseconds = milliseconds;
+        public MotionMessage(MessageType messageType, long milliseconds, byte wid, float x, float y, float z) 
+            : base(messageType, milliseconds, wid) {
             this.X = x;
             this.Y = y;
             this.Z = z;
         }
 
-        static public void WriteTo(BinaryWriter bw, MotionMessage m) {
-            bw.Write(m.Wid);
-            bw.Write(m.IsGyro);
-            bw.Write(m.Milliseconds);
-            bw.Write(m.X);
-            bw.Write(m.Y);
-            bw.Write(m.Z);
+        public MotionMessage(MessageType messageType, BinaryReader br, ref int size) : base(messageType, br, ref size) {
+            X = ReadFloatAndAccumulateSize(br, ref size);
+            Y = ReadFloatAndAccumulateSize(br, ref size);
+            Z = ReadFloatAndAccumulateSize(br, ref size);
+            PadMessageEnd(br, ref size);
+        }
+
+        public override int WriteTo(BinaryWriter bw) {
+            int size = base.WriteTo(bw);
+            WriteAndAccumulateSize(bw, X, ref size);
+            WriteAndAccumulateSize(bw, Y, ref size);
+            WriteAndAccumulateSize(bw, Z, ref size);
+            PadMessageEnd(bw, ref size);
             bw.Flush();
-        }
-
-        static public MotionMessage ReadFrom(BinaryReader br) {
-            return new MotionMessage(
-                wid: br.ReadByte(),
-                isGyro: br.ReadBoolean(),
-                milliseconds: br.ReadInt64(),
-                x: br.ReadSingle(),
-                y: br.ReadSingle(),
-                z: br.ReadSingle());
-        }
-
-        static public int GetByteSize() {
-            return sizeof (byte) + sizeof (bool) + sizeof (long) + sizeof (float) * 3;
+            return size;
         }
     }
 }

@@ -1,9 +1,30 @@
 using System;
+using System.IO;
+using System.Threading;
 using MemoryMappedIpcServer.Shared;
 
 namespace MemoryMappedIpcClient {
     class ClientProgram {
         private static void Main(string[] args) {
+
+            //while (true) {
+            //    ConnectionToServer c = new ConnectionToServer();
+
+            //    Console.WriteLine("created");
+
+            //    Thread.Sleep(1000);
+
+            //    c.Dispose();
+                
+            //    Console.WriteLine("disposed");
+
+            //    Thread.Sleep(1000);
+
+            //    GC.Collect();
+            //    Console.WriteLine("gc collected");
+            //}
+
+
 
             ConnectionToServer connectionToServer = new ConnectionToServer();
 
@@ -41,12 +62,40 @@ namespace MemoryMappedIpcClient {
             for (int ii = 0;; ++ii) {
 //            while(true) { 
                 bool first = true;
-                foreach (MotionMessage i in connectionToServer.GetAvailableLines()) {
+                foreach (AbstractMessage i in connectionToServer.GetAvailableLines()) {
                     if (first) {
                         //Console.WriteLine("first");
                         first = false;
                     }
                     //Console.WriteLine("read this: " + i.Wid + " " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
+
+                    Console.Write(i.Wid + " " + i.Milliseconds + " ");
+
+                    switch (i.MessageType) {
+                        case MessageType.ButtonMessage:
+                            ButtonMessage b = i as ButtonMessage;
+                            if (b != null) {
+                                Console.WriteLine("btn: " + b.Pressed + " " + b.Held + " " + b.Released);
+                            } else {
+                                throw new InvalidDataException();
+                            }
+                            break;
+                        case MessageType.GyroMessage:
+                            MotionMessage g = i as MotionMessage;
+                            if (g != null) {
+                                Console.WriteLine("gyro: " + g.X + "\t" + g.Y + "\t" + g.Z);
+                            }
+                            break;
+                        case MessageType.AccelMessage:
+                            MotionMessage a = i as MotionMessage;
+                            if (a != null) {
+                                Console.WriteLine("accel: " + a.X + "\t" + a.Y + "\t" + a.Z);
+                            }
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
+
                 }
                 //Console.WriteLine("hit enter");
                 //Console.ReadLine();
