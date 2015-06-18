@@ -1,3 +1,5 @@
+TODO: remove the pipe projects and bring in the shared memory project. Also install VS plugin to normalize line endings.
+
 # MemoryMappedIpc
 A simple C# project to get processes on the same machine to communicate.
 
