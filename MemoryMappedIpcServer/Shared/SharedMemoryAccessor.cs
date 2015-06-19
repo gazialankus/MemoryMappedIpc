@@ -7,16 +7,13 @@ using Winterdom.IO.FileMap;
 namespace MemoryMappedIpcServer.Shared {
     class SharedMemoryAccessor {
 
-//        public static string PipeName = "\\\\.\\pipe\\wii_welcomer_pipe";
-        //public static string PipeName = "wii_welcomer_pipe";
-
         private readonly MemoryMappedFile _memoryMappedFile;
         private readonly int _clientId;
         private readonly bool _isServer;
         // for server
-        private BinaryWriter _bufferWriter;
+        private readonly BinaryWriter _bufferWriter;
         // for client
-        private BinaryReader _bufferReader;
+        private readonly BinaryReader _bufferReader;
 
         public SharedMemoryAccessor(int clientId, bool isServer, int lineSize, int totalBufferSizeInLines) {
 
@@ -34,15 +31,19 @@ namespace MemoryMappedIpcServer.Shared {
             currentLocation = currentLocation + sizeof(int);
             _clientWantsGyroRecalibrationForAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _clientSuppliedGyroRecalibrationAddress = currentLocation;
+            _clientSuppliedGyroRecalibrationForAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
+
             _gyroCalibrationXAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
             _gyroCalibrationYAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
             _gyroCalibrationZAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
+
             _clientClosedConnectionAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientPing = currentLocation;
             currentLocation = currentLocation + sizeof(int);
             int headerSize = currentLocation;
 
@@ -139,18 +140,22 @@ namespace MemoryMappedIpcServer.Shared {
         private readonly Stream _mmStream;
 
         private int ReadIntFromHeader(int address) {
-            long oldPosition = _headerAccessor.Position;
-            _headerAccessor.Seek(address, SeekOrigin.Begin);
-            int val = _headerReader.ReadInt32();
-            _headerAccessor.Seek(oldPosition, SeekOrigin.Begin); //TODO maybe this is not needed, this may not affect the other stream
-            return val;
+            lock (_headerAccessor) { //since we access this from another thread now. 
+                long oldPosition = _headerAccessor.Position;
+                _headerAccessor.Seek(address, SeekOrigin.Begin);
+                int val = _headerReader.ReadInt32();
+                _headerAccessor.Seek(oldPosition, SeekOrigin.Begin); //TODO maybe this is not needed, this may not affect the other stream
+                return val;
+            }
         }
 
         private void WriteIntToHeader(int address, int value) {
-            long oldPosition = _headerAccessor.Position;
-            _headerAccessor.Seek(address, SeekOrigin.Begin);
-            _headerWriter.Write(value);
-            _headerAccessor.Seek(oldPosition, SeekOrigin.Begin);
+            lock (_headerAccessor) {
+                long oldPosition = _headerAccessor.Position;
+                _headerAccessor.Seek(address, SeekOrigin.Begin);
+                _headerWriter.Write(value);
+                _headerAccessor.Seek(oldPosition, SeekOrigin.Begin);
+            }
         }
 
         private int _serverBufferStartingLine;
@@ -221,12 +226,12 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
-        public bool ClientSuppliedGyroRecalibration {
+        public int ClientSuppliedGyroRecalibrationFor {
             get {
-                return ReadIntFromHeader(_clientSuppliedGyroRecalibrationAddress) != 0;
+                return ReadIntFromHeader(_clientSuppliedGyroRecalibrationForAddress);
             }
             set {
-                WriteIntToHeader(_clientSuppliedGyroRecalibrationAddress, value ? 1 : 0);
+                WriteIntToHeader(_clientSuppliedGyroRecalibrationForAddress, value);
             }
         }
 
@@ -254,6 +259,15 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
+        public int ClientPing {
+            get {
+                return ReadIntFromHeader(_clientPing);
+            }
+            set {
+                WriteIntToHeader(_clientPing, value);
+            }
+        }
+
         private readonly Stream _headerAccessor;
         private readonly BinaryReader _headerReader;
         private readonly BinaryWriter _headerWriter;
@@ -261,35 +275,15 @@ namespace MemoryMappedIpcServer.Shared {
         private readonly int _bufferWrittenLineCountAddress;
         private readonly int _clientHasReadThisManyLinesAddress;
         private readonly int _clientWantsGyroRecalibrationForAddress;
-        private readonly int _clientSuppliedGyroRecalibrationAddress;
+        private readonly int _clientSuppliedGyroRecalibrationForAddress;
         private readonly int _gyroCalibrationXAddress; 
         private readonly int _gyroCalibrationYAddress;
         private readonly int _gyroCalibrationZAddress;
         private readonly int _clientClosedConnectionAddress;
-
+        private readonly int _clientPing;
 
         private readonly int _bufferOffset;
 
-        //static private long CalculateSharedMemorySizeInBytes(int lineSize, int totalBufferSizeInLines) {
-        //    return CalculateHeaderSizeInBytes() 
-        //        + lineSize * totalBufferSizeInLines;
-        //}
-
-        //private static int CalculateHeaderSizeInBytes() {
-        //    return sizeof (int) // _bufferStartingLine
-        //           + sizeof (int) // _bufferWrittenLineCount
-        //           + sizeof (int) // _clientHasReadThisManyLines
-        //           + sizeof (int) // _clientWantsGyroRecalibrationAddress
-        //           + sizeof (int) // _clientSuppliedGyroRecalibrationAddress
-        //           + 3 * sizeof (int) //_gyroCalibrationXAddress, _gyroCalibrationYAddress, _gyroCalibrationZAddress
-        //           //+ sizeof (int) // _numberOfClienRequestsAddress;
-        //           //+ sizeof (int) // _numberOfAcceptedClientsAddress;
-        //           //+ sizeof (int) // _lineSizeAddress;
-        //           //+ sizeof (int) // _totalBufferSizeInLinesAddress;
-        //        ;
-        //    //+ sizeof (int) // _totalBufferSizeInLines
-        //    //+ sizeof (int); // _lineSize;
-        //}
 
         // with the help of this, both writer and reader know where they are. use it to complete the protocol. 
         private long GetLinePos() {

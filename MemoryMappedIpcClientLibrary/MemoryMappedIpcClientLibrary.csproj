@@ -71,6 +71,9 @@
     <Compile Include="..\MemoryMappedIpcServer\Shared\CommonSharedMemoryAccessor.cs">
       <Link>Shared\CommonSharedMemoryAccessor.cs</Link>
     </Compile>
+    <Compile Include="..\MemoryMappedIpcServer\Shared\GyroCalibrationMessage.cs">
+      <Link>Shared\GyroCalibrationMessage.cs</Link>
+    </Compile>
     <Compile Include="..\MemoryMappedIpcServer\Shared\MotionMessage.cs">
       <Link>Shared\MotionMessage.cs</Link>
     </Compile>

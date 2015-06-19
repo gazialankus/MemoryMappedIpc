@@ -9,7 +9,8 @@ namespace MemoryMappedIpcServer.Shared
     public enum MessageType: byte {
         ButtonMessage = 1, 
         GyroMessage = 2, 
-        AccelMessage = 3
+        AccelMessage = 3, 
+        GyroCalibrationMessage = 4, 
     }
 
     public class AbstractMessage {
@@ -108,6 +109,8 @@ namespace MemoryMappedIpcServer.Shared
                     return new MotionMessage(MessageType.GyroMessage, br, ref size);
                 case MessageType.AccelMessage:
                     return new MotionMessage(MessageType.AccelMessage, br, ref size);
+                case MessageType.GyroCalibrationMessage:
+                    return new GyroCalibrationMessage(MessageType.GyroCalibrationMessage, br, ref size);
                 default:
                     throw new ArgumentOutOfRangeException();
             }

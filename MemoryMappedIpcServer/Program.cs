@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO.Pipes;
-using System.Xml.Schema;
 using MemoryMappedIpcServer.Shared;
 
 namespace MemoryMappedIpcServer {
@@ -53,9 +51,9 @@ namespace MemoryMappedIpcServer {
         //private static NamedPipeServerStream _welcomingPipeServer;
 
 
-        private static short prevButtonsPressed = 0;
-        private static short prevButtonsHeld = 0;
-        private static short prevButtonsReleased = 0;
+        private static short _prevButtonsPressed = 0;
+        private static short _prevButtonsHeld = 0;
+        private static short _prevButtonsReleased = 0;
 
         //private static int _clientCount = 0;
         //static int GetNextClientId() {
@@ -85,8 +83,9 @@ namespace MemoryMappedIpcServer {
                     RunConnectionMaintenance();
 
                     bool isCalibratingGyro = false;
+                    byte calibratingGyroFor = 0;
+                    long millisecondsNow = stopwatch.ElapsedMilliseconds;
                     if (WiiuseSimple.wus_poll() > 0 && Connections.Count > 0) {
-                        long millisecondsNow = stopwatch.ElapsedMilliseconds;
 
                         for (byte wmi = 0; wmi < numConnected; ++wmi) {
                             // this kind of button asking at every poll is good. 
@@ -97,8 +96,8 @@ namespace MemoryMappedIpcServer {
                             short buttonsHeld = WiiuseSimple.wus_get_buttons_held(wmi);
                             short buttonsReleased = WiiuseSimple.wus_get_buttons_released(wmi);
 
-                            if (buttonsPressed != prevButtonsPressed || buttonsHeld != prevButtonsHeld ||
-                                buttonsReleased != prevButtonsReleased) {
+                            if (buttonsPressed != _prevButtonsPressed || buttonsHeld != _prevButtonsHeld ||
+                                buttonsReleased != _prevButtonsReleased) {
 
                                 ButtonMessage m = new ButtonMessage(
                                     messageType: MessageType.ButtonMessage,
@@ -113,9 +112,9 @@ namespace MemoryMappedIpcServer {
                                 }
                             }
 
-                            prevButtonsPressed = buttonsPressed;
-                            prevButtonsHeld = buttonsHeld;
-                            prevButtonsReleased = buttonsReleased;
+                            _prevButtonsPressed = buttonsPressed;
+                            _prevButtonsHeld = buttonsHeld;
+                            _prevButtonsReleased = buttonsReleased;
 
                             if (WiiuseSimple.wus_accel_received(wmi) > 0) {
                                 float x, y, z;
@@ -159,6 +158,7 @@ namespace MemoryMappedIpcServer {
 
                                 if (GyroCalibrator.IsCalibrationUnderwayFor(wmi)) {
                                     isCalibratingGyro = true;
+                                    calibratingGyroFor = wmi;
                                     short xs, ys, zs;
                                     WiiuseSimple.wus_get_raw_gyro(wmi, out xs, out ys, out zs);
                                     GyroCalibrator.RawGyroReceived(wmi, xs, ys, zs);
@@ -168,11 +168,17 @@ namespace MemoryMappedIpcServer {
                                     short[] c = GyroCalibrator.ConsumeCalibrationValuesFor(wmi);
                                     // use them now
                                     WiiuseSimple.wus_set_gyro_calib(wmi, c[0], c[1], c[2]);
+
                                     // tell them what came from the server (also tell everybody else when it comes from the client)
+                                    // WHAT: as the server, we just recalibrated a wii remote. now we need to tell the clients the values of that recalibration.
+
+                                    var gyroCalibrationMessage = CreateGyroCalibrationMessage(millisecondsNow, wmi, c);
+
                                     foreach (ConnectionToClient connection in Connections)
                                     {
 //                                        connection.SharedMemoryAccessor.GyroCalibrationValues = c;
-                                        connection.SetGyroCalibFor(wmi, c);
+                                        connection.SharedMemoryAccessor.AddLine(gyroCalibrationMessage);
+                                        connection.RememberGyroCalibSetFor(wmi);
                                     }
                                 }
                             }
@@ -189,43 +195,69 @@ namespace MemoryMappedIpcServer {
                     for (byte wmi = 0; wmi < numConnected; ++wmi) {
                         // read calibration values supplied and ignore if currently calibrating
 
+                        GyroCalibrationMessage gyroCalibrationMessage = null;
                         foreach (ConnectionToClient connection in Connections) {
                             if (connection.GyroCalibNeverSetFor(wmi)) {
+                                // WHAT: gyro calib never arrived at this client. therefore, we are sending it just so they know. 
+                                // TODO this may be earlier than the recalibration that wiiuse is doing. should track that instead.
                                 short[] c = new short[3];
                                 WiiuseSimple.wus_get_gyro_calib(wmi, out c[0], out c[1], out c[2]);
 
-                                connection.SetGyroCalibFor(wmi, c);
-                            }
-                        }
-
-                        ConnectionToClient connectionThatSuppliedCalibration = null;
-                        foreach (ConnectionToClient connection in Connections)
-                        {
-                            if (connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibration) {
-                                connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibration = false;
-                                if (!isCalibratingGyro) {
-                                    connectionThatSuppliedCalibration = connection;
-
+                                if (gyroCalibrationMessage == null) {
+                                    gyroCalibrationMessage = CreateGyroCalibrationMessage(millisecondsNow, wmi, c);
                                 }
+                                connection.SharedMemoryAccessor.AddLine(gyroCalibrationMessage);
+                                connection.RememberGyroCalibSetFor(wmi);
+                                //connection.SetGyroCalibFor(wmi, c);
                             }
                         }
-                        if (connectionThatSuppliedCalibration != null) {
-                            short[] c = connectionThatSuppliedCalibration.SharedMemoryAccessor.GyroCalibrationValues;
-                            // ok, let everybody else know. or put it in their shared memory so they know if they read it. 
-                            foreach (ConnectionToClient connection in Connections) {
-                                if (connection != connectionThatSuppliedCalibration) {
+
+
+                    }
+                    ConnectionToClient connectionThatSuppliedCalibration = null;
+                    byte calibrationIsForWii = 0;
+                    foreach (ConnectionToClient connection in Connections)
+                    {
+                        // TODO make it -1 initially as well
+                        if (connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor != -1) {
+                            byte i = (byte)connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor;
+                            connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor = -1;
+                            if (!isCalibratingGyro || calibratingGyroFor != i) {
+                                connectionThatSuppliedCalibration = connection;
+                                calibrationIsForWii = i;
+                            }
+                        }
+                    }
+                    if (connectionThatSuppliedCalibration != null) {
+                        short[] c = connectionThatSuppliedCalibration.SharedMemoryAccessor.GyroCalibrationValues;
+                        // WHAT: some client told us to use specific calibration values that they saved in the past.
+                        // ok, let everybody else know. or put it in their shared memory so they know if they read it. 
+                        GyroCalibrationMessage m = CreateGyroCalibrationMessage(millisecondsNow, calibrationIsForWii, c);
+                        foreach (ConnectionToClient connection in Connections) {
+                            if (connection != connectionThatSuppliedCalibration) {
 //                                        connection.SharedMemoryAccessor.GyroCalibrationValues = c;
-                                    connection.SetGyroCalibFor(wmi, c);
-                                }
+                                connection.SharedMemoryAccessor.AddLine(m);
+                                connection.RememberGyroCalibSetFor(calibrationIsForWii);
+                                //connection.SetGyroCalibFor(wmi, c);
                             }
-                            // ok, now actually apply these calibration values to this wii remote
-                            WiiuseSimple.wus_set_gyro_calib(wmi, c[0], c[1], c[2]);
                         }
-
+                        // ok, now actually apply these calibration values to this wii remote
+                        WiiuseSimple.wus_set_gyro_calib(calibrationIsForWii, c[0], c[1], c[2]);
                     }
 
                 }
             }
+        }
+
+        private static GyroCalibrationMessage CreateGyroCalibrationMessage(long millisecondsNow, byte wmi, short[] c) {
+            GyroCalibrationMessage gyroCalibrationMessage = new GyroCalibrationMessage(
+                messageType: MessageType.GyroCalibrationMessage,
+                milliseconds: millisecondsNow,
+                wid: wmi,
+                x: c[0],
+                y: c[1],
+                z: c[2]);
+            return gyroCalibrationMessage;
         }
 
 

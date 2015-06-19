@@ -86,6 +86,7 @@
     <Compile Include="Shared\AbstractMessage.cs" />
     <Compile Include="Shared\ButtonMessage.cs" />
     <Compile Include="Shared\CommonSharedMemoryAccessor.cs" />
+    <Compile Include="Shared\GyroCalibrationMessage.cs" />
     <Compile Include="Shared\MotionMessage.cs" />
     <Compile Include="Shared\PipeMessage.cs" />
     <Compile Include="Shared\SharedMemoryAccessor.cs" />

@@ -94,6 +94,7 @@ namespace MemoryMappedIpcServer.Shared {
         private readonly BinaryReader _headerReader;
         private readonly BinaryWriter _headerWriter;
 
+        // these are more like IDs. not reduced upon disconnection.
         private readonly int _numberOfClienRequestsAddress;
         private readonly int _numberOfAcceptedClientsAddress;
         private readonly int _lineSizeAddress;

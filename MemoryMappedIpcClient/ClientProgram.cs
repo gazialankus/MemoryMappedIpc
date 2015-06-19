@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using MemoryMappedIpcServer.Shared;
@@ -58,9 +59,10 @@ namespace MemoryMappedIpcClient {
             //    Console.WriteLine(sharedMemoryAccessor.ReadLine());
             //}
 
+
             bool calibrating = false;
             for (int ii = 0;; ++ii) {
-//            while(true) { 
+
                 bool first = true;
                 foreach (AbstractMessage i in connectionToServer.GetAvailableLines()) {
                     if (first) {
@@ -69,7 +71,7 @@ namespace MemoryMappedIpcClient {
                     }
                     //Console.WriteLine("read this: " + i.Wid + " " + i.IsGyro + " " + i.Milliseconds + " " + i.X + " " + i.Y + " " + i.Z);
 
-                    Console.Write(i.Wid + " " + i.Milliseconds + " ");
+                    //Console.Write(i.Wid + " " + i.Milliseconds + " ");
 
                     switch (i.MessageType) {
                         case MessageType.ButtonMessage:
@@ -83,13 +85,19 @@ namespace MemoryMappedIpcClient {
                         case MessageType.GyroMessage:
                             MotionMessage g = i as MotionMessage;
                             if (g != null) {
-                                Console.WriteLine("gyro: " + g.X + "\t" + g.Y + "\t" + g.Z);
+                                //Console.WriteLine("gyro: " + g.X + "\t" + g.Y + "\t" + g.Z);
                             }
                             break;
                         case MessageType.AccelMessage:
                             MotionMessage a = i as MotionMessage;
                             if (a != null) {
-                                Console.WriteLine("accel: " + a.X + "\t" + a.Y + "\t" + a.Z);
+                                //Console.WriteLine("accel: " + a.X + "\t" + a.Y + "\t" + a.Z);
+                            }
+                            break;
+                        case MessageType.GyroCalibrationMessage:
+                            GyroCalibrationMessage gy = i as GyroCalibrationMessage;
+                            if (gy != null) {
+                                Console.WriteLine("gyro calib: " + gy.X + " " + gy.Y + " " + gy.Z + " ");
                             }
                             break;
                         default:
