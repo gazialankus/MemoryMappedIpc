@@ -219,9 +219,9 @@ namespace MemoryMappedIpcServer {
                     foreach (ConnectionToClient connection in Connections)
                     {
                         // TODO make it -1 initially as well
-                        if (connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor != -1) {
-                            byte i = (byte)connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor;
-                            connection.SharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor = -1;
+                        if (connection.SharedMemoryAccessor.ClientSuppliedWiiGyroRecalibrationFor != -1) {
+                            byte i = (byte)connection.SharedMemoryAccessor.ClientSuppliedWiiGyroRecalibrationFor;
+                            connection.SharedMemoryAccessor.ClientSuppliedWiiGyroRecalibrationFor = -1;
                             if (!isCalibratingGyro || calibratingGyroFor != i) {
                                 connectionThatSuppliedCalibration = connection;
                                 calibrationIsForWii = i;
@@ -229,7 +229,7 @@ namespace MemoryMappedIpcServer {
                         }
                     }
                     if (connectionThatSuppliedCalibration != null) {
-                        short[] c = connectionThatSuppliedCalibration.SharedMemoryAccessor.GyroCalibrationValues;
+                        short[] c = connectionThatSuppliedCalibration.SharedMemoryAccessor.WiiGyroCalibrationValues;
                         // WHAT: some client told us to use specific calibration values that they saved in the past.
                         // ok, let everybody else know. or put it in their shared memory so they know if they read it. 
                         GyroCalibrationMessage m = CreateGyroCalibrationMessage(millisecondsNow, calibrationIsForWii, c);
@@ -251,7 +251,6 @@ namespace MemoryMappedIpcServer {
 
         private static GyroCalibrationMessage CreateGyroCalibrationMessage(long millisecondsNow, byte wmi, short[] c) {
             GyroCalibrationMessage gyroCalibrationMessage = new GyroCalibrationMessage(
-                messageType: MessageType.GyroCalibrationMessage,
                 milliseconds: millisecondsNow,
                 wid: wmi,
                 x: c[0],

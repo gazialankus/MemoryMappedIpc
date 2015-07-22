@@ -2,10 +2,24 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Winterdom.IO.FileMap;
-//using System.IO.MemoryMappedFiles;
 
 namespace MemoryMappedIpcServer.Shared {
-    class SharedMemoryAccessor {
+
+    // these are used as tokens of negotiation with the game 
+    public enum InfoType: byte {
+        // what is being placed in the lines in shared memory
+        AccelAndGyro = 1, 
+        OrientationQuaternion = 2,
+    }
+
+    public enum DeviceType: byte {
+        // the device type
+        Wii = 1,
+        Android = 2,
+    }
+
+
+    public class SharedMemoryAccessor {
 
         private readonly MemoryMappedFile _memoryMappedFile;
         private readonly int _clientId;
@@ -29,22 +43,33 @@ namespace MemoryMappedIpcServer.Shared {
             currentLocation = currentLocation + sizeof(int);
             _clientHasReadThisManyLinesAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _clientWantsGyroRecalibrationForAddress = currentLocation;
+            _clientWantsWiiGyroRecalibrationForAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _clientSuppliedGyroRecalibrationForAddress = currentLocation;
+            _clientSuppliedWiiGyroRecalibrationForAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
 
-            _gyroCalibrationXAddress = currentLocation;
+            _wiiGyroCalibrationXAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _gyroCalibrationYAddress = currentLocation;
+            _wiiGyroCalibrationYAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _gyroCalibrationZAddress = currentLocation;
+            _wiiGyroCalibrationZAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
 
             _clientClosedConnectionAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _clientPing = currentLocation;
+            _clientPingAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
+
+            _clientHasSuppliedDesiredCriteriaAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+
+            _clientDesiredInfoTypeAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientDesiredDeviceTypeAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            _clientDesiredDeviceIdAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+
             int headerSize = currentLocation;
 
 
@@ -217,38 +242,40 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
-        public int ClientWantsGyroRecalibrationFor {
+        // Wii-specific
+        public int ClientWantsWiiGyroRecalibrationFor {
             get {
-                return ReadIntFromHeader(_clientWantsGyroRecalibrationForAddress);
+                return ReadIntFromHeader(_clientWantsWiiGyroRecalibrationForAddress);
             }
             set {
-                WriteIntToHeader(_clientWantsGyroRecalibrationForAddress, value);
+                WriteIntToHeader(_clientWantsWiiGyroRecalibrationForAddress, value);
             }
         }
 
-        public int ClientSuppliedGyroRecalibrationFor {
+        public int ClientSuppliedWiiGyroRecalibrationFor {
             get {
-                return ReadIntFromHeader(_clientSuppliedGyroRecalibrationForAddress);
+                return ReadIntFromHeader(_clientSuppliedWiiGyroRecalibrationForAddress);
             }
             set {
-                WriteIntToHeader(_clientSuppliedGyroRecalibrationForAddress, value);
+                WriteIntToHeader(_clientSuppliedWiiGyroRecalibrationForAddress, value);
             }
         }
 
-        public short[] GyroCalibrationValues {
+        public short[] WiiGyroCalibrationValues {
             get {
                 return new short[3] {
-                    (short) ReadIntFromHeader(_gyroCalibrationXAddress), 
-                    (short) ReadIntFromHeader(_gyroCalibrationYAddress), 
-                    (short) ReadIntFromHeader(_gyroCalibrationZAddress),
+                    (short) ReadIntFromHeader(_wiiGyroCalibrationXAddress), 
+                    (short) ReadIntFromHeader(_wiiGyroCalibrationYAddress), 
+                    (short) ReadIntFromHeader(_wiiGyroCalibrationZAddress),
                 };
             }
             set {
-                WriteIntToHeader(_gyroCalibrationXAddress, value[0]);
-                WriteIntToHeader(_gyroCalibrationYAddress, value[1]);
-                WriteIntToHeader(_gyroCalibrationZAddress, value[2]);
+                WriteIntToHeader(_wiiGyroCalibrationXAddress, value[0]);
+                WriteIntToHeader(_wiiGyroCalibrationYAddress, value[1]);
+                WriteIntToHeader(_wiiGyroCalibrationZAddress, value[2]);
             }
         }
+        // ^Wii-specific
 
         public bool ClientClosedConnection {
             get {
@@ -261,12 +288,51 @@ namespace MemoryMappedIpcServer.Shared {
 
         public int ClientPing {
             get {
-                return ReadIntFromHeader(_clientPing);
+                return ReadIntFromHeader(_clientPingAddress);
             }
             set {
-                WriteIntToHeader(_clientPing, value);
+                WriteIntToHeader(_clientPingAddress, value);
             }
         }
+
+        // client's desired data type info
+        public bool ClientHasSuppliedDesiredCriteria {
+            get {
+                return ReadIntFromHeader(_clientHasSuppliedDesiredCriteriaAddress) != 0;
+            }
+            set {
+                WriteIntToHeader(_clientHasSuppliedDesiredCriteriaAddress, value ? 1: 0);
+            }
+        }
+
+        public int ClientDesiredInfoType {
+            get {
+                return ReadIntFromHeader(_clientDesiredInfoTypeAddress);
+            }
+            set {
+                WriteIntToHeader(_clientDesiredInfoTypeAddress, value);
+            }
+        }
+
+        public int ClientDesiredDeviceType {
+            get {
+                return ReadIntFromHeader(_clientDesiredDeviceTypeAddress);
+            }
+            set {
+                WriteIntToHeader(_clientDesiredDeviceTypeAddress, value);
+            }
+        }
+
+        public int ClientDesiredDeviceId {
+            get {
+                return ReadIntFromHeader(_clientDesiredDeviceIdAddress);
+            }
+            set {
+                WriteIntToHeader(_clientDesiredDeviceIdAddress, value);
+            }
+        }
+
+
 
         private readonly Stream _headerAccessor;
         private readonly BinaryReader _headerReader;
@@ -274,13 +340,17 @@ namespace MemoryMappedIpcServer.Shared {
         private readonly int _bufferStartingLineAddress;
         private readonly int _bufferWrittenLineCountAddress;
         private readonly int _clientHasReadThisManyLinesAddress;
-        private readonly int _clientWantsGyroRecalibrationForAddress;
-        private readonly int _clientSuppliedGyroRecalibrationForAddress;
-        private readonly int _gyroCalibrationXAddress; 
-        private readonly int _gyroCalibrationYAddress;
-        private readonly int _gyroCalibrationZAddress;
+        private readonly int _clientWantsWiiGyroRecalibrationForAddress;
+        private readonly int _clientSuppliedWiiGyroRecalibrationForAddress;
+        private readonly int _wiiGyroCalibrationXAddress; 
+        private readonly int _wiiGyroCalibrationYAddress;
+        private readonly int _wiiGyroCalibrationZAddress;
         private readonly int _clientClosedConnectionAddress;
-        private readonly int _clientPing;
+        private readonly int _clientPingAddress;
+        private readonly int _clientHasSuppliedDesiredCriteriaAddress;
+        private readonly int _clientDesiredInfoTypeAddress;
+        private readonly int _clientDesiredDeviceTypeAddress;
+        private readonly int _clientDesiredDeviceIdAddress;
 
         private readonly int _bufferOffset;
 

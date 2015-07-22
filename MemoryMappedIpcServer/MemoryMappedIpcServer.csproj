@@ -88,6 +88,7 @@
     <Compile Include="Shared\CommonSharedMemoryAccessor.cs" />
     <Compile Include="Shared\GyroCalibrationMessage.cs" />
     <Compile Include="Shared\MotionMessage.cs" />
+    <Compile Include="Shared\OrientationQuaternionMessage.cs" />
     <Compile Include="Shared\PipeMessage.cs" />
     <Compile Include="Shared\SharedMemoryAccessor.cs" />
     <Compile Include="Wiiuse-Simple\WiiuseSimple.cs" />

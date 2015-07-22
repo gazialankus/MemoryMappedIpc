@@ -9,15 +9,15 @@ namespace MemoryMappedIpcServer.Shared
     public class GyroCalibrationMessage : AbstractMessage {
         public short X, Y, Z;
 
-        public GyroCalibrationMessage(MessageType messageType, long milliseconds, byte wid, short x, short y, short z) 
-            : base(messageType, milliseconds, wid) {
+        public GyroCalibrationMessage(long milliseconds, byte wid, short x, short y, short z) 
+            : base(MessageType.GyroCalibrationMessage, milliseconds, wid) {
             X = x;
             Y = y;
             Z = z;
         }
 
-        public GyroCalibrationMessage(MessageType messageType, BinaryReader br, ref int size) 
-            : base(messageType, br, ref size) {
+        public GyroCalibrationMessage(BinaryReader br, ref int size) 
+            : base(MessageType.GyroCalibrationMessage, br, ref size) {
             X = ReadShortAndAccumulateSize(br, ref size);
             Y = ReadShortAndAccumulateSize(br, ref size);
             Z = ReadShortAndAccumulateSize(br, ref size);

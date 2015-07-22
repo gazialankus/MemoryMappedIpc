@@ -93,6 +93,9 @@
     <Compile Include="..\MemoryMappedIpcServer\Shared\MotionMessage.cs">
       <Link>Shared\MotionMessage.cs</Link>
     </Compile>
+    <Compile Include="..\MemoryMappedIpcServer\Shared\OrientationQuaternionMessage.cs">
+      <Link>Shared\OrientationQuaternionMessage.cs</Link>
+    </Compile>
     <Compile Include="..\MemoryMappedIpcServer\Shared\PipeMessage.cs">
       <Link>Shared\PipeMessage.cs</Link>
     </Compile>

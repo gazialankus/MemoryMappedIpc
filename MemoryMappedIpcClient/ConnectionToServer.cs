@@ -34,6 +34,21 @@ namespace MemoryMappedIpcClient {
             pingThread.Start();
         }
 
+        public void RequestStreamFromSource(InfoType infoType) {
+            RequestStreamFromSource((int)infoType, -1, -1);
+        }
+
+        public void RequestStreamFromSource(InfoType infoType, DeviceType deviceType, int deviceId = -1) {
+            RequestStreamFromSource((int)infoType, (int)deviceType, -1);
+        }
+
+        private void RequestStreamFromSource(int infoType, int deviceType, int deviceId) {
+            _sharedMemoryAccessor.ClientDesiredInfoType = infoType;
+            _sharedMemoryAccessor.ClientDesiredDeviceType = deviceType;
+            _sharedMemoryAccessor.ClientDesiredDeviceId = deviceId;
+            _sharedMemoryAccessor.ClientHasSuppliedDesiredCriteria = true;
+        }
+
         private void PingThread() {
             while (!_isDisposed) {
                 Console.WriteLine("ping");
@@ -54,16 +69,16 @@ namespace MemoryMappedIpcClient {
         }
 
         public void StartGyroCalibration(byte wid) {
-            _sharedMemoryAccessor.ClientWantsGyroRecalibrationFor |= 1 << wid;
+            _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationFor |= 1 << wid;
         }
 
         public void StopGyroCalibration(byte wid) {
-            _sharedMemoryAccessor.ClientWantsGyroRecalibrationFor &= ~(1 << wid);
+            _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationFor &= ~(1 << wid);
         }
 
         public void SetGyroCalibrationFor(byte wid, short x, short y, short z) {
-            _sharedMemoryAccessor.GyroCalibrationValues = new short[] {x, y, z};
-            _sharedMemoryAccessor.ClientSuppliedGyroRecalibrationFor = wid;
+            _sharedMemoryAccessor.WiiGyroCalibrationValues = new short[] {x, y, z};
+            _sharedMemoryAccessor.ClientSuppliedWiiGyroRecalibrationFor = wid;
         }
 
         private bool _isDisposed = false;

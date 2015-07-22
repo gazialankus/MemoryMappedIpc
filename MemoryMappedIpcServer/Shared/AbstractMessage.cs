@@ -10,18 +10,19 @@ namespace MemoryMappedIpcServer.Shared
         ButtonMessage = 1, 
         GyroMessage = 2, 
         AccelMessage = 3, 
-        GyroCalibrationMessage = 4, 
+        OrientationQuaternionMessage = 4, 
+        GyroCalibrationMessage = 5, 
     }
 
     public class AbstractMessage {
         public MessageType MessageType;
         public long Milliseconds;
-        public byte Wid;
+        public byte DeviceId;
 
-        public AbstractMessage(MessageType messageType, long milliseconds, byte wid) {
+        public AbstractMessage(MessageType messageType, long milliseconds, byte deviceId) {
             MessageType = messageType;
             Milliseconds = milliseconds;
-            Wid = wid;
+            DeviceId = deviceId;
         }
 
         public AbstractMessage(MessageType messageType, BinaryReader br, ref int size) {
@@ -29,14 +30,14 @@ namespace MemoryMappedIpcServer.Shared
             //MessageType = (MessageType)br.ReadByte();
             MessageType = messageType;
             Milliseconds = ReadLongAndAccumulateSize(br, ref size);
-            Wid = ReadByteAndAccumulateSize(br, ref size);
+            DeviceId = ReadByteAndAccumulateSize(br, ref size);
         }
 
         public virtual int WriteTo(BinaryWriter bw) {
             int size = 0;
             WriteAndAccumulateSize(bw, (byte)MessageType, ref size);
             WriteAndAccumulateSize(bw, Milliseconds, ref size);
-            WriteAndAccumulateSize(bw, Wid, ref size);
+            WriteAndAccumulateSize(bw, DeviceId, ref size);
             return size;
             // not flushing since the actual message will follow
         }
@@ -109,8 +110,10 @@ namespace MemoryMappedIpcServer.Shared
                     return new MotionMessage(MessageType.GyroMessage, br, ref size);
                 case MessageType.AccelMessage:
                     return new MotionMessage(MessageType.AccelMessage, br, ref size);
+                case MessageType.OrientationQuaternionMessage:
+                    return new OrientationQuaternionMessage(br, ref size);
                 case MessageType.GyroCalibrationMessage:
-                    return new GyroCalibrationMessage(MessageType.GyroCalibrationMessage, br, ref size);
+                    return new GyroCalibrationMessage(br, ref size);
                 default:
                     throw new ArgumentOutOfRangeException();
             }

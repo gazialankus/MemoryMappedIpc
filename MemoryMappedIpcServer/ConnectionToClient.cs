@@ -27,7 +27,7 @@ namespace MemoryMappedIpcServer {
         private int _clientWantedGyroRecalibFor;
 
         public void UpdateGyroCalibrationStatus() {
-            int clientWantsGyroRecalibrationFor = SharedMemoryAccessor.ClientWantsGyroRecalibrationFor;
+            int clientWantsGyroRecalibrationFor = SharedMemoryAccessor.ClientWantsWiiGyroRecalibrationFor;
 
             if (_clientWantedGyroRecalibFor != clientWantsGyroRecalibrationFor) {
                 // turn some on
