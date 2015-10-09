@@ -83,6 +83,9 @@
     <Compile Include="..\MemoryMappedIpcServer\Shared\PipeMessage.cs">
       <Link>Shared\PipeMessage.cs</Link>
     </Compile>
+    <Compile Include="..\MemoryMappedIpcServer\Shared\ServerNames.cs">
+      <Link>Shared\ServerNames.cs</Link>
+    </Compile>
     <Compile Include="..\MemoryMappedIpcServer\Shared\SharedMemoryAccessor.cs">
       <Link>Shared\SharedMemoryAccessor.cs</Link>
     </Compile>

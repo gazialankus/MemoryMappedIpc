@@ -15,7 +15,8 @@ namespace MemoryMappedIpcServer.Shared {
     public enum DeviceType: byte {
         // the device type
         Wii = 1,
-        Android = 2,
+        Android = 2, 
+        Gamepad = 3, 
     }
 
 
@@ -29,12 +30,11 @@ namespace MemoryMappedIpcServer.Shared {
         // for client
         private readonly BinaryReader _bufferReader;
 
-        public SharedMemoryAccessor(int clientId, bool isServer, int lineSize, int totalBufferSizeInLines) {
+        public SharedMemoryAccessor(string memoryMapName, int clientId, bool isServer, int lineSize, int totalBufferSizeInLines) {
+            //var memoryMapName = "wii_" + _clientId; //used to be this way.
 
             this._clientId = clientId;
             _isServer = isServer;
-
-            var memoryMapName = "wii_" + _clientId;
 
             int currentLocation;
             _bufferStartingLineAddress = currentLocation = 0;
@@ -43,7 +43,7 @@ namespace MemoryMappedIpcServer.Shared {
             currentLocation = currentLocation + sizeof(int);
             _clientHasReadThisManyLinesAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
-            _clientWantsWiiGyroRecalibrationForAddress = currentLocation;
+            _clientWantsWiiGyroRecalibrationForBitmaskAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
             _clientSuppliedWiiGyroRecalibrationForAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
@@ -157,6 +157,18 @@ namespace MemoryMappedIpcServer.Shared {
 
             this.LineSize = lineSize;
             this.TotalBufferSizeInLines = totalBufferSizeInLines;
+
+
+            if (isServer) {
+                InitializeShmemValues();
+            }
+        }
+
+        private void InitializeShmemValues() {
+            ClientWantsWiiGyroRecalibrationForBitmask = 0;
+            ClientSuppliedWiiGyroRecalibrationFor = -1;
+            ClientClosedConnection = false;
+            ClientHasSuppliedDesiredCriteria = false;
         }
 
         public int LineSize { get; private set; }
@@ -243,12 +255,12 @@ namespace MemoryMappedIpcServer.Shared {
         }
 
         // Wii-specific
-        public int ClientWantsWiiGyroRecalibrationFor {
+        public int ClientWantsWiiGyroRecalibrationForBitmask {
             get {
-                return ReadIntFromHeader(_clientWantsWiiGyroRecalibrationForAddress);
+                return ReadIntFromHeader(_clientWantsWiiGyroRecalibrationForBitmaskAddress);
             }
             set {
-                WriteIntToHeader(_clientWantsWiiGyroRecalibrationForAddress, value);
+                WriteIntToHeader(_clientWantsWiiGyroRecalibrationForBitmaskAddress, value);
             }
         }
 
@@ -340,7 +352,7 @@ namespace MemoryMappedIpcServer.Shared {
         private readonly int _bufferStartingLineAddress;
         private readonly int _bufferWrittenLineCountAddress;
         private readonly int _clientHasReadThisManyLinesAddress;
-        private readonly int _clientWantsWiiGyroRecalibrationForAddress;
+        private readonly int _clientWantsWiiGyroRecalibrationForBitmaskAddress;
         private readonly int _clientSuppliedWiiGyroRecalibrationForAddress;
         private readonly int _wiiGyroCalibrationXAddress; 
         private readonly int _wiiGyroCalibrationYAddress;

@@ -18,6 +18,7 @@ namespace MemoryMappedIpcServer {
             _gyroCalibrator = gyroCalibrator;
 
             SharedMemoryAccessor = new SharedMemoryAccessor(
+                memoryMapName: ServerNames.MotionServer(id), 
                 clientId: id, 
                 isServer: true, 
                 lineSize: lineSize, 
@@ -27,7 +28,7 @@ namespace MemoryMappedIpcServer {
         private int _clientWantedGyroRecalibFor;
 
         public void UpdateGyroCalibrationStatus() {
-            int clientWantsGyroRecalibrationFor = SharedMemoryAccessor.ClientWantsWiiGyroRecalibrationFor;
+            int clientWantsGyroRecalibrationFor = SharedMemoryAccessor.ClientWantsWiiGyroRecalibrationForBitmask;
 
             if (_clientWantedGyroRecalibFor != clientWantsGyroRecalibrationFor) {
                 // turn some on

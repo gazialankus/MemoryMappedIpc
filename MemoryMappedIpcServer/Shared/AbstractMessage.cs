@@ -115,14 +115,14 @@ namespace MemoryMappedIpcServer.Shared
                 case MessageType.GyroCalibrationMessage:
                     return new GyroCalibrationMessage(br, ref size);
                 default:
-                    throw new ArgumentOutOfRangeException();
+                    throw new ArgumentOutOfRangeException("Message type " + messageType + " not recognized.");
             }
         }
 
         // header: byte, long, byte
         public static int ContentSize = sizeof(byte) + sizeof(long) + sizeof(byte);
         // motion message: float, float, float
-        public static int LineSize = ContentSize + 3 * sizeof(float);
+        public static int LineSize = ContentSize + 5 * sizeof(float);
 
         protected void PadMessageEnd(BinaryWriter bw, ref int writtenBytes) {
             int numPaddingBytes = LineSize - writtenBytes;

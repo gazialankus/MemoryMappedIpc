@@ -25,6 +25,7 @@ namespace MemoryMappedIpcClient {
             Console.WriteLine("received from server: " + id + " " + lineSize + " " + totalBufferSizeInLines);
 
             _sharedMemoryAccessor = new SharedMemoryAccessor(
+                memoryMapName: ServerNames.MotionServer(id), 
                 clientId: id,
                 isServer: false,
                 lineSize: lineSize,
@@ -69,11 +70,11 @@ namespace MemoryMappedIpcClient {
         }
 
         public void StartGyroCalibration(byte wid) {
-            _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationFor |= 1 << wid;
+            _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationForBitmask |= 1 << wid;
         }
 
         public void StopGyroCalibration(byte wid) {
-            _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationFor &= ~(1 << wid);
+            _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationForBitmask &= ~(1 << wid);
         }
 
         public void SetGyroCalibrationFor(byte wid, short x, short y, short z) {

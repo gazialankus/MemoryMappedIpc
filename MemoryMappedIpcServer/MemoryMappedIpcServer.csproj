@@ -90,6 +90,7 @@
     <Compile Include="Shared\MotionMessage.cs" />
     <Compile Include="Shared\OrientationQuaternionMessage.cs" />
     <Compile Include="Shared\PipeMessage.cs" />
+    <Compile Include="Shared\ServerNames.cs" />
     <Compile Include="Shared\SharedMemoryAccessor.cs" />
     <Compile Include="Wiiuse-Simple\WiiuseSimple.cs" />
   </ItemGroup>

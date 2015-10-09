@@ -310,7 +310,7 @@ namespace MemoryMappedIpcServer {
 
         private static readonly GyroCalibrator GyroCalibrator = new GyroCalibrator();
 
-        private static readonly int TotalBufferSizeInLines = 100;
+        private static readonly int TotalBufferSizeInLines = ServerNames.DefaultTotalBufferSizeInLines;
 
         private static void Main(string[] args) {
             //_welcomingPipeServer = CreateNewPipeServer();
