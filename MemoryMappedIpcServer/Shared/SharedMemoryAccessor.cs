@@ -69,6 +69,9 @@ namespace MemoryMappedIpcServer.Shared {
             currentLocation = currentLocation + sizeof(int);
             _clientDesiredDeviceIdAddress = currentLocation;
             currentLocation = currentLocation + sizeof(int);
+            _clientGenericIntMessageAddress = currentLocation;
+            currentLocation = currentLocation + sizeof(int);
+            
 
             int headerSize = currentLocation;
 
@@ -161,6 +164,9 @@ namespace MemoryMappedIpcServer.Shared {
 
             if (isServer) {
                 InitializeShmemValues();
+            } else {
+                // let the client catch up and ignore previous values.
+                ClientHasReadThisManyLines = BufferWrittenLineCount;
             }
         }
 
@@ -344,6 +350,15 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
+        public int ClientGenericIntMessage {
+            get {
+                return ReadIntFromHeader(_clientGenericIntMessageAddress);
+            }
+            set {
+                WriteIntToHeader(_clientGenericIntMessageAddress, value);
+            }
+        }
+
 
 
         private readonly Stream _headerAccessor;
@@ -363,6 +378,7 @@ namespace MemoryMappedIpcServer.Shared {
         private readonly int _clientDesiredInfoTypeAddress;
         private readonly int _clientDesiredDeviceTypeAddress;
         private readonly int _clientDesiredDeviceIdAddress;
+        private readonly int _clientGenericIntMessageAddress;
 
         private readonly int _bufferOffset;
 
@@ -387,7 +403,7 @@ namespace MemoryMappedIpcServer.Shared {
             //write
             if (GetLinePos() == TotalBufferSizeInLines) {
                 SeekToLine(0);
-                Console.WriteLine("server looped back to start");
+                //Console.WriteLine("server looped back to start");
             }
             m.WriteTo(_bufferWriter);
 

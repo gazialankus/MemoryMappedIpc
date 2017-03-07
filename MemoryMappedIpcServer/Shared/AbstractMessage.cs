@@ -127,7 +127,7 @@ namespace MemoryMappedIpcServer.Shared
         protected void PadMessageEnd(BinaryWriter bw, ref int writtenBytes) {
             int numPaddingBytes = LineSize - writtenBytes;
             if (numPaddingBytes > 0) {
-                Console.WriteLine("will seek forwards " + numPaddingBytes + " bytes");
+                //Console.WriteLine("will seek forwards " + numPaddingBytes + " bytes");
                 bw.BaseStream.Seek(numPaddingBytes, SeekOrigin.Current);
             }
         }
@@ -135,7 +135,7 @@ namespace MemoryMappedIpcServer.Shared
         protected void PadMessageEnd(BinaryReader br, ref int readBytes) {
             int numPaddingBytes = LineSize - readBytes;
             if (numPaddingBytes > 0) {
-                Console.WriteLine("write seek " + numPaddingBytes + " bytes");
+                //Console.WriteLine("write seek " + numPaddingBytes + " bytes");
                 br.BaseStream.Seek(numPaddingBytes, SeekOrigin.Current);
             }
         }
