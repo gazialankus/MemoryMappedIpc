@@ -461,6 +461,10 @@ namespace MemoryMappedIpcServer.Shared {
         }
 
         public AbstractMessage GetLastAvailableLineToClient() {
+            // if there are available lines, tell the server that you have read them and return them 
+            // I should always seek here, because if the client does not actually read them, the stream does not advance. 
+
+            // if there are no new lines, break.
             if (ClientHasReadThisManyLines > 0) {
                 // we've already read some the last time. the server did not have a chance to reorganize. pass this time. 
                 return null;
@@ -469,22 +473,75 @@ namespace MemoryMappedIpcServer.Shared {
                 // the server did not add any new lines, yet.
                 return null;
             } else {
-
                 // report that you have read this many 
                 int bufferWrittenLineCountCopy = BufferWrittenLineCount;
 
-                // TODO should every seekto line have a modulo operator?
-                SeekToLine((BufferStartingLine + bufferWrittenLineCountCopy - 1) % TotalBufferSizeInLines);
+                // does it matter when I report this? reporting this causes the server to rearrange stuff. so maybe hold on to it. 
 
+                IEnumerable<AbstractMessage> enumerable = EnumerateForClient(bufferWrittenLineCountCopy);
+
+                AbstractMessage msg = null;
+
+                foreach (AbstractMessage i in enumerable) {
+                    msg = i;
+                }
+
+                // report this late so that the server can start the rearrangements after we have done our reading. 
+                // what if we don't do the reading? well then we should do the enumerator in another function.
+                // right now, we are reporting before we read. unless the server writes too fast and fills the buffer. 
                 ClientHasReadThisManyLines = bufferWrittenLineCountCopy;
 
-                return AbstractMessage.ReadFrom(_bufferReader);
+                return msg;
+            }
+        }
+
+        public AbstractMessage GetLastAvailableLineToClient_effort() {
+            if (ClientHasReadThisManyLines > 0) {
+                // we've already read some the last time. the server did not have a chance to reorganize. pass this time. 
+                return null;
+            } else if (BufferWrittenLineCount <= 0) { //just in case, the <
+                return null;
+            } else {
+                // report that you have read this many 
+                int bufferWrittenLineCountCopy = BufferWrittenLineCount;
+
+                SeekToLine(BufferStartingLine);
+                if (GetLinePos() == TotalBufferSizeInLines) {
+                    SeekToLine(0);
+                }
+                AbstractMessage firstMessage = AbstractMessage.ReadFrom(_bufferReader);
+
+                // TODO seek till the end
+
+                return firstMessage;
+
+                //SeekUntilLastLine(bufferWrittenLineCountCopy);
+                //AbstractMessage lastLine = ReadOneLine();
+                //ClientHasReadThisManyLines = bufferWrittenLineCountCopy;
+                //return lastLine;
             }
         }
 
         private IEnumerable<AbstractMessage> BlankEnumerableForClient() {
             yield break;
         }
+
+        private AbstractMessage ReadOneLine() {
+            return AbstractMessage.ReadFrom(_bufferReader);
+        }
+        
+        private void SeekUntilLastLine(int bufferWrittenLineCountCopy) {
+            SeekToLine(BufferStartingLine);
+
+            for (int i = 0; i < bufferWrittenLineCountCopy - 1; ++i) {
+                // keep reading. when we hit the end, rewind to the beginning.
+                if (GetLinePos() == TotalBufferSizeInLines) {
+                    SeekToLine(0);
+                }
+                _bufferReader.BaseStream.Seek(LineSize, SeekOrigin.Current);
+            }
+        }
+
 
         private IEnumerable<AbstractMessage> EnumerateForClient(int bufferWrittenLineCountCopy) {
             // read them, starting from BufferStartingLine, and as many as BufferWrittenLineCount
