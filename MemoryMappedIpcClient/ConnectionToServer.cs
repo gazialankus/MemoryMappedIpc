@@ -69,6 +69,14 @@ namespace MemoryMappedIpcClient {
             }
         }
 
+        public AbstractMessage GetLastLineAvailable() {
+            if (_sharedMemoryAccessor != null) {
+                return _sharedMemoryAccessor.GetLastAvailableLineToClient();
+            } else {
+                return null;
+            }
+        }
+
         public void StartGyroCalibration(byte wid) {
             _sharedMemoryAccessor.ClientWantsWiiGyroRecalibrationForBitmask |= 1 << wid;
         }

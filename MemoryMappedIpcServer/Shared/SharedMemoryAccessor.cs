@@ -460,6 +460,28 @@ namespace MemoryMappedIpcServer.Shared {
             }
         }
 
+        public AbstractMessage GetLastAvailableLineToClient() {
+            if (ClientHasReadThisManyLines > 0) {
+                // we've already read some the last time. the server did not have a chance to reorganize. pass this time. 
+                return null;
+            } else if (BufferWrittenLineCount == 0) {
+                //Console.WriteLine("still no new line");
+                // the server did not add any new lines, yet.
+                return null;
+            } else {
+
+                // report that you have read this many 
+                int bufferWrittenLineCountCopy = BufferWrittenLineCount;
+
+                // TODO should every seekto line have a modulo operator?
+                SeekToLine((BufferStartingLine + bufferWrittenLineCountCopy - 1) % TotalBufferSizeInLines);
+
+                ClientHasReadThisManyLines = bufferWrittenLineCountCopy;
+
+                return AbstractMessage.ReadFrom(_bufferReader);
+            }
+        }
+
         private IEnumerable<AbstractMessage> BlankEnumerableForClient() {
             yield break;
         }
@@ -485,5 +507,6 @@ namespace MemoryMappedIpcServer.Shared {
             _memoryMappedFile.Dispose();
             // do I need to dispose of anything else? I think the other streams etc are dependent on the memory mapped file, maybe not necessary. 
         }
+
     }
 }
